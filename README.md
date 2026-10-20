@@ -23,6 +23,9 @@ UI (@Composable Figma) ──► ViewModel (StateFlow) ──► Domain Validato
 - **IE 2.2.1 (Componentes Visuales Validados y Animaciones Funcionales)**: `ValidatedTextField.kt` gestiona automáticamente estados `isError`, íconos semánticos (`Icons.Default.Error` en rojo y `Icons.Default.CheckCircle` en verde) y transiciones fluidas mediante `AnimatedVisibility` (`fadeIn + expandVertically` / `fadeOut + shrinkVertically`).
 - **IE 2.2.2 (Autenticación y Navegación RBAC)**: `LoginScreen.kt` autentica contra Room SQLite, incorpora el **Selector Rápido de Credenciales (Modo Defensa)** y redirige automáticamente a la bandeja de trabajo según el rol (`TECNICO`, `JEFATURA`, `FINANZAS`) mediante `TeqGastosNavGraph.kt`.
 - **IE 2.3.1 (Persistencia Local Offline-First)**: Almacenamiento relacional en SQLite con `AppDatabase`, claves foráneas en cascada, índice compuesto anti-duplicados y semilla automática de datos (`SeedDatabaseCallback`).
+- **IE 2.4.1 (Acceso Seguro a 2 Recursos Nativos e Integración TeqRuta)**:
+  1. **Cámara Nativa**: Configurada con `androidx.core.content.FileProvider` (`res/xml/file_paths.xml`), `NativeResourcesHelper.createImageUri(context)` y `ActivityResultContracts.TakePicture()` con visualización de miniatura en pantalla.
+  2. **Georreferenciación GPS**: Configurada con `FusedLocationProviderClient`, `ActivityResultContracts.RequestMultiplePermissions()` (`ACCESS_FINE_LOCATION` y `ACCESS_COARSE_LOCATION`), manejo explícito de `SecurityException` y coordenadas por defecto de Concepción (`-36.8270, -73.0503`).
 
 ### Estructura de Paquetes (`cl.duoc.teqgastos`)
 
@@ -43,27 +46,31 @@ cl.duoc.teqgastos
 ├── domain
 │   └── validators
 │       └── GastoValidator.kt                    # Reglas puras: RUT, Folio, Fecha 5 días, Conversor UF/USD, Topes CLP
-└── ui
-    ├── components
-    │   ├── ValidatedTextField.kt                # OutlinedTextField validado con íconos dinámicos y AnimatedVisibility
-    │   └── TeqFigmaComponents.kt                # Componentes del sistema Figma: TeqBrand, TeqAppHeader, TeqBottomNav, TeqPrimaryButton
-    ├── navigation
-    │   └── TeqGastosNavGraph.kt                 # Grafo declarativo Navigation Compose por rol
-    ├── screens
-    │   ├── auth
-    │   │   ├── AuthViewModel.kt                 # Validación en tiempo real de Login y perfiles Demo
-    │   │   └── LoginScreen.kt                   # Pantalla de acceso con Hero curvo y selector rápido Modo Defensa
-    │   ├── tecnico
-    │   │   ├── TecnicoViewModel.kt              # Orquestador de registro de gastos, conversión CLP y bloqueo de duplicados
-    │   │   └── TecnicoScreen.kt                 # Formulario de gasto Figma, grilla de categorías, tasas offline e historial
-    │   ├── jefatura
-    │   │   ├── JefaturaViewModel.kt             # Gestión de bandeja de evaluación, aprobación y observación/rechazo
-    │   │   └── JefaturaScreen.kt                # Tarjeta resumen teal, tarjetas de evaluación y modal con justificación (0/240)
-    │   └── finanzas
-    │       ├── FinanzasViewModel.kt             # Consolidación de reembolsos aprobados y generación de archivo CSV ERP
-    │       └── FinanzasScreen.kt                # Consolidado de desembolso, detalle de aprobados y exportación ERP (.CSV)
-    └── theme
-        └── TeqTheme.kt                          # Paleta oficial extraída de Figma (#1B2A4A Navy, #00D2C4 Teal, #F4F6F8 Surface)
+├── ui
+│   ├── components
+│   │   ├── ValidatedTextField.kt                # OutlinedTextField validado con íconos dinámicos y AnimatedVisibility
+│   │   └── TeqFigmaComponents.kt                # Componentes del sistema Figma: TeqBrand, TeqAppHeader, TeqBottomNav, TeqPrimaryButton
+│   ├── navigation
+│   │   └── TeqGastosNavGraph.kt                 # Grafo declarativo Navigation Compose por rol
+│   ├── screens
+│   │   ├── auth
+│   │   │   ├── AuthViewModel.kt                 # Validación en tiempo real de Login y perfiles Demo
+│   │   │   └── LoginScreen.kt                   # Pantalla de acceso con Hero curvo y selector rápido Modo Defensa
+│   │   ├── tecnico
+│   │   │   ├── TecnicoViewModel.kt              # Orquestador de rendiciones, traslado TeqRuta, Cámara, GPS y anti-duplicados
+│   │   │   ├── TecnicoHomeScreen.kt             # Carpetas de rendición con animateContentSize, creación e importación TeqRuta
+│   │   │   ├── FormularioGastoScreen.kt         # Registro de gasto con TakePicture (FileProvider) y GPS (FusedLocation)
+│   │   │   └── TecnicoScreen.kt                 # Coordinador de vistas del flujo Técnico
+│   │   ├── jefatura
+│   │   │   ├── JefaturaViewModel.kt             # Gestión de bandeja de evaluación, aprobación y observación/rechazo
+│   │   │   └── JefaturaScreen.kt                # Tarjeta resumen teal, tarjetas de evaluación y modal con justificación (0/240)
+│   │   └── finanzas
+│   │       ├── FinanzasViewModel.kt             # Consolidación de reembolsos aprobados y generación de archivo CSV ERP
+│   │       └── FinanzasScreen.kt                # Consolidado de desembolso, detalle de aprobados y exportación ERP (.CSV)
+│   └── theme
+│       └── TeqTheme.kt                          # Paleta oficial extraída de Figma (#1B2A4A Navy, #00D2C4 Teal, #F4F6F8 Surface)
+└── utils
+    └── NativeResourcesHelper.kt                 # Acceso seguro a Cámara (FileProvider) y GPS (FusedLocationProviderClient)
 ```
 
 > **Referencia de Diseño Figma**: La carpeta [`app/src-interface/`](file:///Users/hoxtxndev/Desktop/proyecto-semestral/Proyecto-semestral/app/src-interface/App.tsx) conserva la maqueta original exportada desde Figma (`App.tsx` e `index.css`) a partir de la cual se construyó la interfaz nativa en Jetpack Compose.

@@ -20,7 +20,8 @@ import cl.duoc.teqgastos.ui.screens.finanzas.FinanzasViewModelFactory
 import cl.duoc.teqgastos.ui.screens.jefatura.JefaturaScreen
 import cl.duoc.teqgastos.ui.screens.jefatura.JefaturaViewModel
 import cl.duoc.teqgastos.ui.screens.jefatura.JefaturaViewModelFactory
-import cl.duoc.teqgastos.ui.screens.tecnico.TecnicoScreen
+import cl.duoc.teqgastos.ui.screens.tecnico.FormularioGastoScreen
+import cl.duoc.teqgastos.ui.screens.tecnico.TecnicoHomeScreen
 import cl.duoc.teqgastos.ui.screens.tecnico.TecnicoViewModel
 import cl.duoc.teqgastos.ui.screens.tecnico.TecnicoViewModelFactory
 
@@ -29,16 +30,26 @@ import cl.duoc.teqgastos.ui.screens.tecnico.TecnicoViewModelFactory
  */
 object TeqGastosRoutes {
     const val LOGIN = "login"
-    const val TECNICO = "tecnico/{usuarioId}"
+    const val TECNICO_HOME = "tecnico/{usuarioId}"
+    const val FORMULARIO_GASTO = "tecnico/{usuarioId}/formulario?rendicionId={rendicionId}"
     const val JEFATURA = "jefatura"
     const val FINANZAS = "finanzas"
 
-    fun rutaTecnico(usuarioId: Int) = "tecnico/$usuarioId"
+    fun rutaTecnicoHome(usuarioId: Int) = "tecnico/$usuarioId"
+
+    fun rutaFormularioGasto(usuarioId: Int, rendicionId: Int? = null): String {
+        val idParam = rendicionId ?: -1
+        return "tecnico/$usuarioId/formulario?rendicionId=$idParam"
+    }
 }
 
 /**
- * Grafo principal de navegación Compose que conecta el Login con las 3 bandejas RBAC
- * implementadas desde Figma (`TechnicianScreen`, `ManagerScreen`, `FinanceScreen`).
+ * Grafo principal de navegación Compose que conecta:
+ * - `LoginScreen`
+ * - `TecnicoHomeScreen` (Carpetas de rendición animadas + Importación TeqRuta)
+ * - `FormularioGastoScreen` (Registro de boleta con Cámara FileProvider + GPS FusedLocation)
+ * - `JefaturaScreen` (Evaluación y aprobación/observación/rechazo)
+ * - `FinanzasScreen` (Desembolso y exportación CSV ERP)
  */
 @Composable
 fun TeqGastosNavGraph(
@@ -48,6 +59,15 @@ fun TeqGastosNavGraph(
 ) {
     val authViewModel: AuthViewModel = viewModel(
         factory = AuthViewModelFactory(repository)
+    )
+
+    // ViewModel compartido para el flujo del Técnico en terreno (Home + FormularioGasto)
+    val tecnicoViewModel: TecnicoViewModel = viewModel(
+        factory = TecnicoViewModelFactory(
+            repository = repository,
+            tecnicoId = 1,
+            nombreTecnico = "Carlos Muñoz"
+        )
     )
 
     NavHost(
@@ -60,10 +80,10 @@ fun TeqGastosNavGraph(
                 viewModel = authViewModel,
                 onLoginSuccess = { usuario ->
                     val destino = when (usuario.rol) {
-                        UsuarioEntity.ROL_TECNICO -> TeqGastosRoutes.rutaTecnico(usuario.id)
+                        UsuarioEntity.ROL_TECNICO -> TeqGastosRoutes.rutaTecnicoHome(usuario.id)
                         UsuarioEntity.ROL_JEFATURA -> TeqGastosRoutes.JEFATURA
                         UsuarioEntity.ROL_FINANZAS -> TeqGastosRoutes.FINANZAS
-                        else -> TeqGastosRoutes.rutaTecnico(usuario.id)
+                        else -> TeqGastosRoutes.rutaTecnicoHome(usuario.id)
                     }
                     navController.navigate(destino) {
                         popUpTo(TeqGastosRoutes.LOGIN) { inclusive = true }
@@ -73,24 +93,47 @@ fun TeqGastosNavGraph(
         }
 
         composable(
-            route = TeqGastosRoutes.TECNICO,
+            route = TeqGastosRoutes.TECNICO_HOME,
             arguments = listOf(navArgument("usuarioId") { type = NavType.IntType })
         ) { backStackEntry ->
             val usuarioId = backStackEntry.arguments?.getInt("usuarioId") ?: 1
-            val tecnicoViewModel: TecnicoViewModel = viewModel(
-                factory = TecnicoViewModelFactory(
-                    repository = repository,
-                    tecnicoId = usuarioId,
-                    nombreTecnico = "Carlos Muñoz"
-                )
-            )
-            TecnicoScreen(
+            TecnicoHomeScreen(
                 viewModel = tecnicoViewModel,
+                onNavigateToFormularioGasto = { rendicionId ->
+                    tecnicoViewModel.prepararFormularioParaRendicion(rendicionId)
+                    navController.navigate(
+                        TeqGastosRoutes.rutaFormularioGasto(
+                            usuarioId = usuarioId,
+                            rendicionId = rendicionId
+                        )
+                    )
+                },
                 onLogout = {
                     authViewModel.cerrarSesion()
                     navController.navigate(TeqGastosRoutes.LOGIN) {
                         popUpTo(0) { inclusive = true }
                     }
+                }
+            )
+        }
+
+        composable(
+            route = TeqGastosRoutes.FORMULARIO_GASTO,
+            arguments = listOf(
+                navArgument("usuarioId") { type = NavType.IntType },
+                navArgument("rendicionId") {
+                    type = NavType.IntType
+                    defaultValue = -1
+                }
+            )
+        ) {
+            FormularioGastoScreen(
+                viewModel = tecnicoViewModel,
+                onGastoGuardado = {
+                    navController.popBackStack()
+                },
+                onNavigateBack = {
+                    navController.popBackStack()
                 }
             )
         }

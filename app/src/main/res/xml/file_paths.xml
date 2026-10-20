@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Directorio de caché interno para almacenar fotografías temporales de boletas -->
+    <cache-path
+        name="boletas_cache"
+        path="boletas/" />
+    <cache-path
+        name="root_cache"
+        path="." />
+
+    <!-- Directorio interno de archivos de la aplicación para persistencia segura de evidencias -->
+    <files-path
+        name="boletas_files"
+        path="boletas/" />
+    <files-path
+        name="root_files"
+        path="." />
+</paths>
