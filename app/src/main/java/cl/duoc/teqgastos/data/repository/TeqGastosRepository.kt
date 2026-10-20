@@ -78,8 +78,64 @@ class TeqGastosRepository(private val dao: TeqGastosDao) {
     fun obtenerGastosPorRendicion(rendicionId: Int): Flow<List<GastoEntity>> =
         dao.obtenerGastosPorRendicion(rendicionId)
 
+    fun obtenerTodosLosGastos(): Flow<List<GastoEntity>> =
+        dao.obtenerTodosLosGastos()
+
     suspend fun crearRendicion(rendicion: RendicionEntity): Long {
         return dao.insertarRendicion(rendicion)
+    }
+
+    /**
+     * Crea una rendición y su gasto asociado enviándola directamente a PENDIENTE_JEFATURA
+     * tal como opera el flujo directo de la interfaz Figma de Técnico.
+     */
+    suspend fun registrarRendicionConGasto(
+        tecnicoId: Int,
+        nombreTecnico: String,
+        centroCosto: String,
+        medioPago: String = RendicionEntity.MEDIO_FONDO_POR_RENDIR,
+        rutProveedor: String,
+        folioBoleta: String,
+        fechaGastoMillis: Long,
+        categoria: String,
+        moneda: String,
+        montoOriginal: Double,
+        montoConvertidoClp: Double,
+        fotoUri: String?,
+        latitud: Double?,
+        longitud: Double?,
+        origenTeqRuta: Boolean = false
+    ): Long {
+        val rendicionId = dao.insertarRendicion(
+            RendicionEntity(
+                tecnicoId = tecnicoId,
+                nombreTecnico = nombreTecnico,
+                centroCosto = centroCosto,
+                medioPago = medioPago,
+                fechaCreacion = fechaGastoMillis,
+                montoTotalClp = montoConvertidoClp,
+                estado = RendicionEntity.ESTADO_PENDIENTE_JEFATURA
+            )
+        ).toInt()
+
+        dao.insertarGasto(
+            GastoEntity(
+                rendicionId = rendicionId,
+                rutProveedor = rutProveedor,
+                folioBoleta = folioBoleta,
+                fechaGastoMillis = fechaGastoMillis,
+                categoria = categoria,
+                moneda = moneda,
+                montoOriginal = montoOriginal,
+                montoConvertidoClp = montoConvertidoClp,
+                fotoUri = fotoUri,
+                latitud = latitud,
+                longitud = longitud,
+                origenTeqRuta = origenTeqRuta
+            )
+        )
+        dao.recalcularMontoTotalRendicion(rendicionId)
+        return rendicionId.toLong()
     }
 
     /**
@@ -163,5 +219,19 @@ class TeqGastosRepository(private val dao: TeqGastosDao) {
             nuevoEstado = RendicionEntity.ESTADO_PAGADA_ERP,
             codigoPagoFinanzas = codigoPagoFinanzas
         )
+    }
+
+    /** Acción de FINANZAS (Lote ERP): Marca todas las rendiciones aprobadas seleccionadas como PAGADA_ERP. */
+    suspend fun procesarPagoLoteFinanzas(
+        rendicionIds: List<Int>,
+        codigoPagoFinanzas: String
+    ) {
+        rendicionIds.forEach { id ->
+            dao.actualizarEstadoRendicion(
+                rendicionId = id,
+                nuevoEstado = RendicionEntity.ESTADO_PAGADA_ERP,
+                codigoPagoFinanzas = codigoPagoFinanzas
+            )
+        }
     }
 }

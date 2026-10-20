@@ -116,6 +116,10 @@ interface TeqGastosDao {
     @Query("SELECT * FROM gastos WHERE rendicionId = :rendicionId ORDER BY fechaGastoMillis DESC")
     fun obtenerGastosPorRendicion(rendicionId: Int): Flow<List<GastoEntity>>
 
+    /** Obtiene todos los gastos registrados para cruzar detalle en bandejas de Jefatura y Finanzas. */
+    @Query("SELECT * FROM gastos ORDER BY fechaGastoMillis DESC")
+    fun obtenerTodosLosGastos(): Flow<List<GastoEntity>>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertarGasto(gasto: GastoEntity): Long
 

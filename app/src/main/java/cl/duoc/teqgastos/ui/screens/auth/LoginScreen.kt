@@ -7,6 +7,8 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,6 +17,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -25,25 +28,14 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Login
-import androidx.compose.material.icons.filled.AccountBalance
-import androidx.compose.material.icons.filled.Badge
-import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.ReceiptLong
-import androidx.compose.material.icons.filled.VerifiedUser
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ElevatedCard
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -53,27 +45,36 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cl.duoc.teqgastos.data.local.entities.UsuarioEntity
+import cl.duoc.teqgastos.ui.components.TeqBrand
+import cl.duoc.teqgastos.ui.components.TeqPrimaryButton
 import cl.duoc.teqgastos.ui.components.ValidatedTextField
+import cl.duoc.teqgastos.ui.theme.TeqBackground
+import cl.duoc.teqgastos.ui.theme.TeqBorder
+import cl.duoc.teqgastos.ui.theme.TeqMutedText
+import cl.duoc.teqgastos.ui.theme.TeqNavy
+import cl.duoc.teqgastos.ui.theme.TeqSecondaryText
+import cl.duoc.teqgastos.ui.theme.TeqTeal
+import cl.duoc.teqgastos.ui.theme.TeqTealDark
+import cl.duoc.teqgastos.ui.theme.TeqTealSoft
 
 /**
- * Pantalla de Autenticación Corporativa de TeqGastos (Fase 4 - Indicadores IE 2.1.2, IE 2.2.1, IE 2.2.2).
- *
- * Implementa:
- * - Validación reactiva en tiempo real orquestada 100% desde `AuthViewModel` y `GastoValidator`.
- * - Campos reutilizables `ValidatedTextField` con íconos de estado y `AnimatedVisibility`.
- * - Selector rápido de credenciales de prueba ("Demo Técnico", "Demo Jefatura", "Demo Finanzas")
- *   para agilizar la defensa académica ante el profesor.
- * - Navegación automática hacia la bandeja correspondiente según el rol autenticado (`onLoginSuccess`).
+ * Pantalla de Login implementada fielmente a partir del diseño de Figma (`src-interface/App.tsx`),
+ * manteniendo la validación reactiva en tiempo real desde `AuthViewModel` y `GastoValidator`,
+ * el selector rápido de perfiles ("Demo Técnico", "Demo Jefatura", "Demo Finanzas") y la navegación RBAC.
  */
 @Composable
 fun LoginScreen(
@@ -84,395 +85,335 @@ fun LoginScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val focusManager = LocalFocusManager.current
 
-    // Efecto reactivo: cuando el usuario se autentica exitosamente, navega al flujo de su rol
+    // Selecciona por defecto "Demo Técnico" al abrir la pantalla por primera vez (como en Figma)
+    LaunchedEffect(Unit) {
+        if (uiState.email.isEmpty() && uiState.perfilDemoActivo == null) {
+            viewModel.seleccionarCredencialesDemo(PerfilDemo.TECNICO)
+        }
+    }
+
+    // Navegación reactiva al autenticar
     LaunchedEffect(uiState.usuarioAutenticado) {
         uiState.usuarioAutenticado?.let { usuario ->
             onLoginSuccess(usuario)
         }
     }
 
+    val etiquetaRolBoton = when (uiState.perfilDemoActivo) {
+        PerfilDemo.TECNICO -> "Técnico"
+        PerfilDemo.JEFATURA -> "Jefatura"
+        PerfilDemo.FINANZAS -> "Finanzas"
+        null -> "Usuario"
+    }
+
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        containerColor = MaterialTheme.colorScheme.background
+        containerColor = TeqBackground
     ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp, vertical = 20.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
         ) {
-            // =====================================================================
-            // 1. CABECERA CORPORATIVA TEQMED SPA
-            // =====================================================================
+            // =================================================================
+            // 1. HERO SUPERIOR FIGMA (.login-hero)
+            // =================================================================
             Box(
                 modifier = Modifier
-                    .size(72.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primaryContainer),
-                contentAlignment = Alignment.Center
+                    .fillMaxWidth()
+                    .height(315.dp)
+                    .clip(RoundedCornerShape(bottomStart = 42.dp, bottomEnd = 42.dp))
+                    .background(TeqNavy)
+                    .padding(horizontal = 26.dp, vertical = 28.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Default.ReceiptLong,
-                    contentDescription = "Logo TeqGastos",
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier.size(38.dp)
+                // Órbitas decorativas (.orbit-one, .orbit-two y glow inferior)
+                Box(
+                    modifier = Modifier
+                        .size(330.dp)
+                        .align(Alignment.TopEnd)
+                        .offset(x = 110.dp, y = (-100).dp)
+                        .border(1.dp, TeqTeal.copy(alpha = 0.16f), CircleShape)
                 )
+                Box(
+                    modifier = Modifier
+                        .size(240.dp)
+                        .align(Alignment.TopEnd)
+                        .offset(x = 66.dp, y = (-57).dp)
+                        .border(1.dp, TeqTeal.copy(alpha = 0.16f), CircleShape)
+                )
+                Box(
+                    modifier = Modifier
+                        .size(250.dp)
+                        .align(Alignment.BottomEnd)
+                        .offset(x = 45.dp, y = 80.dp)
+                        .clip(CircleShape)
+                        .background(TeqTeal.copy(alpha = 0.09f))
+                )
+
+                Column(modifier = Modifier.fillMaxSize()) {
+                    // Fila Brand + Tag TEQMED SPA (.login-brand-row)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        TeqBrand(inverted = true)
+
+                        Surface(
+                            shape = CircleShape,
+                            color = Color.Transparent,
+                            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.16f))
+                        ) {
+                            Text(
+                                text = "TEQMED SPA",
+                                color = Color.White.copy(alpha = 0.65f),
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                letterSpacing = 1.2.sp,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(48.dp))
+
+                    // Copy Hero (.hero-copy)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Check,
+                            contentDescription = null,
+                            tint = Color(0xFF56E5DC),
+                            modifier = Modifier.size(13.dp)
+                        )
+                        Spacer(modifier = Modifier.width(5.dp))
+                        Text(
+                            text = "ACCESO SEGURO",
+                            color = Color(0xFF56E5DC),
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            letterSpacing = 1.4.sp
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Text(
+                        text = buildAnnotatedString {
+                            withStyle(SpanStyle(color = Color.White, fontWeight = FontWeight.ExtraBold)) {
+                                append("Gastos simples.\n")
+                            }
+                            withStyle(SpanStyle(color = TeqTeal, fontWeight = FontWeight.ExtraBold)) {
+                                append("Control total.")
+                            }
+                        },
+                        fontSize = 35.sp,
+                        lineHeight = 37.sp,
+                        letterSpacing = (-1.2).sp
+                    )
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Text(
+                        text = "Rinde, aprueba y procesa gastos desde un solo lugar.",
+                        color = Color.White.copy(alpha = 0.63f),
+                        fontSize = 13.sp,
+                        lineHeight = 19.sp
+                    )
+                }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Text(
-                text = "TeqGastos",
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
-            )
-
-            Text(
-                text = "TEQMED SPA · Rendición y Auditoría de Gastos en Terreno",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center
-            )
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // =====================================================================
-            // 2. FORMULARIO DE ACCESO CON VALIDACIÓN EN TIEMPO REAL
-            // =====================================================================
-            ElevatedCard(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                elevation = CardDefaults.elevatedCardElevation(defaultElevation = 3.dp)
+            // =================================================================
+            // 2. PANEL DE FORMULARIO Y SELECTOR DEMO (.login-panel)
+            // =================================================================
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 26.dp, vertical = 28.dp)
             ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(20.dp)
+                // Cabecera de sección (.section-heading)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top
                 ) {
-                    Text(
-                        text = "Iniciar Sesión Corporativa",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    Text(
-                        text = "Ingrese sus credenciales o utilice el acceso rápido Demo inferior.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // Campo Correo Corporativo validado en tiempo real
-                    ValidatedTextField(
-                        value = uiState.email,
-                        onValueChange = viewModel::onEmailChange,
-                        label = "Correo Corporativo",
-                        placeholder = "usuario@teqmed.cl",
-                        errorMessage = uiState.emailError,
-                        leadingIcon = Icons.Default.Email,
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Email,
-                            imeAction = ImeAction.Next
-                        ),
-                        enabled = !uiState.isLoading
-                    )
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    // Campo Contraseña validado en tiempo real
-                    ValidatedTextField(
-                        value = uiState.password,
-                        onValueChange = viewModel::onPasswordChange,
-                        label = "Contraseña",
-                        placeholder = "••••••",
-                        errorMessage = uiState.passwordError,
-                        leadingIcon = Icons.Default.Lock,
-                        visualTransformation = PasswordVisualTransformation(),
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Password,
-                            imeAction = ImeAction.Done
-                        ),
-                        keyboardActions = KeyboardActions(
-                            onDone = {
-                                focusManager.clearFocus()
-                                viewModel.iniciarSesion()
-                            }
-                        ),
-                        enabled = !uiState.isLoading
-                    )
-
-                    // Indicador animado de perfil Demo seleccionado
-                    AnimatedVisibility(
-                        visible = uiState.perfilDemoActivo != null,
-                        enter = fadeIn() + expandVertically(),
-                        exit = fadeOut() + shrinkVertically()
-                    ) {
-                        uiState.perfilDemoActivo?.let { perfil ->
-                            Surface(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(top = 12.dp),
-                                color = MaterialTheme.colorScheme.secondaryContainer,
-                                shape = RoundedCornerShape(10.dp)
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.VerifiedUser,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        text = "Perfil cargado: ${perfil.subtitulo} (${perfil.rol})",
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = MaterialTheme.colorScheme.onSecondaryContainer,
-                                        fontWeight = FontWeight.Medium
-                                    )
-                                }
-                            }
-                        }
+                    Column {
+                        Text(
+                            text = "BIENVENIDO",
+                            color = TeqMutedText,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            letterSpacing = 1.5.sp
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Inicia sesión",
+                            color = TeqNavy,
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            letterSpacing = (-0.6).sp
+                        )
                     }
 
-                    // Alerta animada para errores de autenticación en Room
-                    AnimatedVisibility(
-                        visible = uiState.authError != null,
-                        enter = fadeIn() + expandVertically(),
-                        exit = fadeOut() + shrinkVertically()
+                    Box(
+                        modifier = Modifier
+                            .size(35.dp)
+                            .border(1.dp, TeqBorder, CircleShape),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Card(
+                        Text(
+                            text = "01",
+                            color = TeqMutedText,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(22.dp))
+
+                // Selector rápido de perfil de prueba (.profile-block / .role-selector)
+                Text(
+                    text = "PERFIL DE PRUEBA (SELECTOR RÁPIDO DEFENSA)",
+                    color = TeqMutedText,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    letterSpacing = 1.4.sp
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(7.dp)
+                ) {
+                    PerfilDemo.entries.forEach { perfil ->
+                        val seleccionado = uiState.perfilDemoActivo == perfil
+                        Box(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 12.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.errorContainer
-                            ),
-                            shape = RoundedCornerShape(10.dp)
+                                .weight(1f)
+                                .height(42.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(if (seleccionado) TeqTealSoft else Color.White)
+                                .border(
+                                    width = if (seleccionado) 1.5.dp else 1.dp,
+                                    color = if (seleccionado) TeqTeal else TeqBorder,
+                                    shape = RoundedCornerShape(12.dp)
+                                )
+                                .clickable(enabled = !uiState.isLoading) {
+                                    focusManager.clearFocus()
+                                    viewModel.seleccionarCredencialesDemo(perfil)
+                                },
+                            contentAlignment = Alignment.Center
                         ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(12.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.ErrorOutline,
-                                    contentDescription = "Error de autenticación",
-                                    tint = MaterialTheme.colorScheme.onErrorContainer,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = uiState.authError.orEmpty(),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onErrorContainer
-                                )
-                            }
+                            Text(
+                                text = perfil.tituloBoton,
+                                color = if (seleccionado) TeqTealDark else TeqSecondaryText,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.Center
+                            )
                         }
                     }
+                }
 
-                    Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(20.dp))
 
-                    // Botón principal de Inicio de Sesión
-                    Button(
-                        onClick = {
+                // Campos ValidatedTextField conectados al AuthViewModel en tiempo real
+                ValidatedTextField(
+                    value = uiState.email,
+                    onValueChange = viewModel::onEmailChange,
+                    label = "Email Corporativo",
+                    placeholder = "nombre@teqmed.cl",
+                    errorMessage = uiState.emailError,
+                    leadingIcon = Icons.Default.Email,
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Email,
+                        imeAction = ImeAction.Next
+                    ),
+                    enabled = !uiState.isLoading
+                )
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                ValidatedTextField(
+                    value = uiState.password,
+                    onValueChange = viewModel::onPasswordChange,
+                    label = "Contraseña",
+                    placeholder = "Ingresa tu contraseña",
+                    errorMessage = uiState.passwordError,
+                    leadingIcon = Icons.Default.Lock,
+                    visualTransformation = PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Password,
+                        imeAction = ImeAction.Done
+                    ),
+                    keyboardActions = KeyboardActions(
+                        onDone = {
                             focusManager.clearFocus()
                             viewModel.iniciarSesion()
-                        },
+                        }
+                    ),
+                    enabled = !uiState.isLoading
+                )
+
+                // Alerta animada para errores de autenticación
+                AnimatedVisibility(
+                    visible = uiState.authError != null,
+                    enter = fadeIn() + expandVertically(),
+                    exit = fadeOut() + shrinkVertically()
+                ) {
+                    Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(50.dp),
-                        enabled = !uiState.isLoading,
+                            .padding(top = 12.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer
+                        ),
                         shape = RoundedCornerShape(12.dp)
                     ) {
-                        if (uiState.isLoading) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(22.dp),
-                                strokeWidth = 2.5.dp,
-                                color = MaterialTheme.colorScheme.onPrimary
-                            )
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Text(text = "Verificando credenciales...")
-                        } else {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
                             Icon(
-                                imageVector = Icons.AutoMirrored.Filled.Login,
-                                contentDescription = null,
-                                modifier = Modifier.size(20.dp)
+                                imageVector = Icons.Default.ErrorOutline,
+                                contentDescription = "Error de autenticación",
+                                tint = MaterialTheme.colorScheme.onErrorContainer,
+                                modifier = Modifier.size(18.dp)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = "Ingresar al Sistema",
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.SemiBold
+                                text = uiState.authError.orEmpty(),
+                                color = MaterialTheme.colorScheme.onErrorContainer,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium
                             )
                         }
                     }
                 }
-            }
 
-            Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(18.dp))
 
-            // =====================================================================
-            // 3. SELECTOR RÁPIDO DE CREDENCIALES DEMO (DEFENSA ANTE EL PROFESOR)
-            // =====================================================================
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
-                ),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp)
-                ) {
-                    Text(
-                        text = "Selector Rápido de Credenciales (Modo Defensa)",
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    Text(
-                        text = "Toque un rol para cargar sus credenciales validadas de forma inmediata:",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp))
-
-                    // Botón 1: Demo Técnico
-                    DemoRoleButton(
-                        perfil = PerfilDemo.TECNICO,
-                        icono = Icons.Default.Build,
-                        seleccionado = uiState.perfilDemoActivo == PerfilDemo.TECNICO,
-                        enabled = !uiState.isLoading,
-                        onSelect = {
-                            focusManager.clearFocus()
-                            viewModel.seleccionarCredencialesDemo(PerfilDemo.TECNICO)
-                        }
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    // Botón 2: Demo Jefatura
-                    DemoRoleButton(
-                        perfil = PerfilDemo.JEFATURA,
-                        icono = Icons.Default.Badge,
-                        seleccionado = uiState.perfilDemoActivo == PerfilDemo.JEFATURA,
-                        enabled = !uiState.isLoading,
-                        onSelect = {
-                            focusManager.clearFocus()
-                            viewModel.seleccionarCredencialesDemo(PerfilDemo.JEFATURA)
-                        }
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    // Botón 3: Demo Finanzas
-                    DemoRoleButton(
-                        perfil = PerfilDemo.FINANZAS,
-                        icono = Icons.Default.AccountBalance,
-                        seleccionado = uiState.perfilDemoActivo == PerfilDemo.FINANZAS,
-                        enabled = !uiState.isLoading,
-                        onSelect = {
-                            focusManager.clearFocus()
-                            viewModel.seleccionarCredencialesDemo(PerfilDemo.FINANZAS)
-                        }
-                    )
-                }
-            }
-        }
-    }
-}
-
-/**
- * Botón reutilizable para cargar rápidamente un perfil de demostración RBAC.
- */
-@Composable
-private fun DemoRoleButton(
-    perfil: PerfilDemo,
-    icono: ImageVector,
-    seleccionado: Boolean,
-    enabled: Boolean,
-    onSelect: () -> Unit
-) {
-    OutlinedButton(
-        onClick = onSelect,
-        modifier = Modifier.fillMaxWidth(),
-        enabled = enabled,
-        shape = RoundedCornerShape(10.dp),
-        border = BorderStroke(
-            width = if (seleccionado) 2.dp else 1.dp,
-            color = if (seleccionado) {
-                MaterialTheme.colorScheme.primary
-            } else {
-                MaterialTheme.colorScheme.outline
-            }
-        ),
-        colors = ButtonDefaults.outlinedButtonColors(
-            containerColor = if (seleccionado) {
-                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
-            } else {
-                MaterialTheme.colorScheme.surface
-            }
-        )
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = icono,
-                    contentDescription = perfil.tituloBoton,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(20.dp)
+                // Botón Primario estilo Figma (.primary-button)
+                TeqPrimaryButton(
+                    text = "Ingresar como $etiquetaRolBoton",
+                    onClick = {
+                        focusManager.clearFocus()
+                        viewModel.iniciarSesion()
+                    },
+                    isLoading = uiState.isLoading
                 )
-                Spacer(modifier = Modifier.width(10.dp))
-                Column(horizontalAlignment = Alignment.Start) {
-                    Text(
-                        text = perfil.tituloBoton,
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = "${perfil.email} · ${perfil.subtitulo}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
 
-            Surface(
-                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-                shape = RoundedCornerShape(6.dp)
-            ) {
+                Spacer(modifier = Modifier.height(22.dp))
+
                 Text(
-                    text = perfil.rol,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    text = "Plataforma de uso interno · Teqmed SPA",
+                    color = TeqMutedText,
+                    fontSize = 10.sp,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
         }

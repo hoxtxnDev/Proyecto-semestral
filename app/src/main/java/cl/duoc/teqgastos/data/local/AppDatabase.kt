@@ -96,59 +96,129 @@ abstract class AppDatabase : RoomDatabase() {
             )
             dao.insertarUsuarios(usuariosSemilla)
 
-            // 2. Pre-carga de 1 Rendición de ejemplo para demostración inmediata
+            // 2. Pre-carga de rendiciones pendientes y aprobadas alineadas con el diseño Figma
             val ahora = System.currentTimeMillis()
-            val rendicionId = dao.insertarRendicion(
+
+            // Rendición 1 (Pendiente Jefatura - Camila Torres / Carlos Muñoz)
+            val r1 = dao.insertarRendicion(
                 RendicionEntity(
                     id = 1,
                     tecnicoId = 1,
-                    nombreTecnico = "Carlos Muñoz (Técnico Terreno)",
-                    centroCosto = "CC-MANT-CLINICO-01",
+                    nombreTecnico = "Camila Torres",
+                    centroCosto = "CC-104 · Operaciones Norte",
                     medioPago = RendicionEntity.MEDIO_FONDO_POR_RENDIR,
-                    fechaCreacion = ahora - 86_400_000L, // Creada hace 24 horas
-                    montoTotalClp = 28500.0,
-                    estado = RendicionEntity.ESTADO_PENDIENTE_JEFATURA,
-                    comentarioRevision = null,
-                    codigoPagoFinanzas = null
+                    fechaCreacion = ahora - 36_000_000L,
+                    montoTotalClp = 14990.0,
+                    estado = RendicionEntity.ESTADO_PENDIENTE_JEFATURA
                 )
             ).toInt()
-
-            // Ítems de gasto asociados a la rendición de ejemplo
             dao.insertarGasto(
                 GastoEntity(
-                    rendicionId = rendicionId,
-                    rutProveedor = "76.123.456-7",
-                    folioBoleta = "10452",
-                    fechaGastoMillis = ahora - 90_000_000L,
-                    categoria = GastoEntity.CAT_PEAJE_ESTACIONAMIENTO,
+                    rendicionId = r1,
+                    rutProveedor = "17.982.341-2",
+                    folioBoleta = "008321",
+                    fechaGastoMillis = ahora - 36_000_000L,
+                    categoria = GastoEntity.CAT_ALIMENTACION,
                     moneda = GastoEntity.MONEDA_CLP,
-                    montoOriginal = 3500.0,
-                    montoConvertidoClp = 3500.0,
-                    fotoUri = null,
+                    montoOriginal = 14990.0,
+                    montoConvertidoClp = 14990.0,
+                    fotoUri = "content://teqgastos/boletas/IMG_3841.jpg",
                     latitud = -33.4489,
                     longitud = -70.6693,
-                    origenTeqRuta = true // Gasto importado desde TeqRuta
+                    origenTeqRuta = false
                 )
             )
 
+            // Rendición 2 (Pendiente Jefatura - Diego Soto)
+            val r2 = dao.insertarRendicion(
+                RendicionEntity(
+                    id = 2,
+                    tecnicoId = 1,
+                    nombreTecnico = "Diego Soto",
+                    centroCosto = "CC-104 · Operaciones Norte",
+                    medioPago = RendicionEntity.MEDIO_TARJETA_CORPORATIVA,
+                    fechaCreacion = ahora - 72_000_000L,
+                    montoTotalClp = 58700.0,
+                    estado = RendicionEntity.ESTADO_PENDIENTE_JEFATURA
+                )
+            ).toInt()
             dao.insertarGasto(
                 GastoEntity(
-                    rendicionId = rendicionId,
-                    rutProveedor = "99.520.000-7",
-                    folioBoleta = "88410",
-                    fechaGastoMillis = ahora - 86_400_000L,
+                    rendicionId = r2,
+                    rutProveedor = "16.440.828-6",
+                    folioBoleta = "114209",
+                    fechaGastoMillis = ahora - 72_000_000L,
                     categoria = GastoEntity.CAT_COMBUSTIBLE,
                     moneda = GastoEntity.MONEDA_CLP,
-                    montoOriginal = 25000.0,
-                    montoConvertidoClp = 25000.0,
-                    fotoUri = null,
+                    montoOriginal = 58700.0,
+                    montoConvertidoClp = 58700.0,
+                    fotoUri = "content://teqgastos/boletas/IMG_3842.jpg",
                     latitud = -33.4372,
                     longitud = -70.6506,
                     origenTeqRuta = false
                 )
             )
 
-            dao.recalcularMontoTotalRendicion(rendicionId)
+            // Rendición 3 (Pendiente Jefatura - Martín Rojas)
+            val r3 = dao.insertarRendicion(
+                RendicionEntity(
+                    id = 3,
+                    tecnicoId = 1,
+                    nombreTecnico = "Martín Rojas",
+                    centroCosto = "CC-MANT-CLINICO-01",
+                    medioPago = RendicionEntity.MEDIO_FONDO_POR_RENDIR,
+                    fechaCreacion = ahora - 86_400_000L,
+                    montoTotalClp = 65000.0,
+                    estado = RendicionEntity.ESTADO_PENDIENTE_JEFATURA
+                )
+            ).toInt()
+            dao.insertarGasto(
+                GastoEntity(
+                    rendicionId = r3,
+                    rutProveedor = "18.223.901-4",
+                    folioBoleta = "003118",
+                    fechaGastoMillis = ahora - 86_400_000L,
+                    categoria = GastoEntity.CAT_ALOJAMIENTO,
+                    moneda = GastoEntity.MONEDA_CLP,
+                    montoOriginal = 65000.0,
+                    montoConvertidoClp = 65000.0,
+                    fotoUri = "content://teqgastos/boletas/IMG_3843.jpg",
+                    latitud = -33.4489,
+                    longitud = -70.6693,
+                    origenTeqRuta = false
+                )
+            )
+
+            // Rendición 4 (Aprobada lista para Finanzas - Paula Díaz)
+            val r4 = dao.insertarRendicion(
+                RendicionEntity(
+                    id = 4,
+                    tecnicoId = 1,
+                    nombreTecnico = "Paula Díaz",
+                    centroCosto = "CC-104 · Operaciones Norte",
+                    medioPago = RendicionEntity.MEDIO_DINERO_PROPIO,
+                    fechaCreacion = ahora - 120_000_000L,
+                    montoTotalClp = 18500.0,
+                    estado = RendicionEntity.ESTADO_APROBADA,
+                    comentarioRevision = "Aprobado conforme a política de peajes TeqRuta"
+                )
+            ).toInt()
+            dao.insertarGasto(
+                GastoEntity(
+                    rendicionId = r4,
+                    rutProveedor = "19.118.220-1",
+                    folioBoleta = "006742",
+                    fechaGastoMillis = ahora - 120_000_000L,
+                    categoria = GastoEntity.CAT_PEAJE_ESTACIONAMIENTO,
+                    moneda = GastoEntity.MONEDA_CLP,
+                    montoOriginal = 18500.0,
+                    montoConvertidoClp = 18500.0,
+                    fotoUri = "content://teqgastos/boletas/IMG_3844.jpg",
+                    latitud = -33.4489,
+                    longitud = -70.6693,
+                    origenTeqRuta = true
+                )
+            )
         }
     }
 }
