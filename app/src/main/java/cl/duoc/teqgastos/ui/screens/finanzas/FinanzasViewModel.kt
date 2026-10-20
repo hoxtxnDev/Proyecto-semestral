@@ -1,5 +1,6 @@
 package cl.duoc.teqgastos.ui.screens.finanzas
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -7,6 +8,8 @@ import cl.duoc.teqgastos.data.local.entities.GastoEntity
 import cl.duoc.teqgastos.data.local.entities.RendicionEntity
 import cl.duoc.teqgastos.data.repository.TeqGastosRepository
 import cl.duoc.teqgastos.domain.validators.GastoValidator
+import cl.duoc.teqgastos.utils.CsvExporter
+import cl.duoc.teqgastos.utils.ResultadoExportacionCsv
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -22,6 +25,8 @@ import kotlinx.coroutines.launch
 data class ItemReembolsoFinanzas(
     val rendicionId: Int,
     val nombreTecnico: String,
+    val centroCosto: String,
+    val medioPago: String,
     val rutProveedor: String,
     val folioBoleta: String,
     val fechaFormateada: String,
@@ -38,10 +43,17 @@ data class FinanzasUiState(
     val mostrarPagadas: Boolean = false,
     val tabActiva: String = "Reportes",
     val isExporting: Boolean = false,
+    val resultadoCsvDialog: ResultadoExportacionCsv? = null,
     val csvGenerado: String? = null,
     val mensajeExito: String? = null
 )
 
+/**
+ * ViewModel para el rol FINANZAS (Fase 7).
+ * Filtra las rendiciones en estado "APROBADA", valida el código de transferencia/reembolso ERP,
+ * genera un archivo `.CSV` real en el dispositivo mediante `CsvExporter` y cierra contablemente
+ * las rendiciones en Room (`PAGADA_ERP`).
+ */
 class FinanzasViewModel(
     private val repository: TeqGastosRepository
 ) : ViewModel() {
@@ -66,6 +78,8 @@ class FinanzasViewModel(
             ItemReembolsoFinanzas(
                 rendicionId = rendicion.id,
                 nombreTecnico = rendicion.nombreTecnico,
+                centroCosto = rendicion.centroCosto,
+                medioPago = rendicion.medioPago,
                 rutProveedor = primerGasto?.rutProveedor ?: "76.123.456-7",
                 folioBoleta = primerGasto?.folioBoleta?.let {
                     if (it.startsWith("F-") || it.startsWith("B-")) it else "B-$it"
@@ -106,11 +120,16 @@ class FinanzasViewModel(
         _uiState.update { it.copy(tabActiva = tab) }
     }
 
+    fun cerrarDialogoCsv() {
+        _uiState.update { it.copy(resultadoCsvDialog = null) }
+    }
+
     /**
-     * Valida el código de pago ERP con `GastoValidator`, genera el contenido CSV
-     * (`RUT,Folio,Categoria,Monto,CodigoPago`) y marca las rendiciones aprobadas como `PAGADA_ERP`.
+     * Valida el código de transferencia ERP con `GastoValidator`, genera el archivo `.CSV` real
+     * en el almacenamiento del dispositivo mediante `CsvExporter` y actualiza las rendiciones
+     * aprobadas a `PAGADA_ERP` en Room.
      */
-    fun exportarErpCsv() {
+    fun exportarErpCsv(context: Context) {
         val actual = _uiState.value
         val errorCodigo = GastoValidator.validarCodigoPagoErp(actual.codigoPago)
         if (errorCodigo != null) {
@@ -129,27 +148,30 @@ class FinanzasViewModel(
         }
 
         val codigoLimpio = actual.codigoPago.trim()
-        val filasCsv = buildList {
-            add("RUT,Folio,Categoria,Monto,CodigoPago")
-            listaParaExportar.forEach { item ->
-                add("${item.rutProveedor},${item.folioBoleta},${item.categoria},${item.montoTotalClp.toLong()},$codigoLimpio")
-            }
-        }.joinToString("\n")
 
         viewModelScope.launch {
             _uiState.update { it.copy(isExporting = true) }
+
+            val resultado = CsvExporter.generarArchivoCsvErp(
+                context = context,
+                items = listaParaExportar,
+                codigoPagoErp = codigoLimpio
+            )
+
             if (aprobadas.isNotEmpty()) {
                 repository.procesarPagoLoteFinanzas(
                     rendicionIds = aprobadas.map { it.rendicionId },
                     codigoPagoFinanzas = codigoLimpio
                 )
             }
+
             _uiState.update {
                 it.copy(
                     isExporting = false,
                     mostrarPagadas = true,
-                    csvGenerado = filasCsv,
-                    mensajeExito = "Archivo teqgastos_erp.csv generado y ${listaParaExportar.size} rendición(es) cerrada(s) con código $codigoLimpio."
+                    resultadoCsvDialog = resultado,
+                    csvGenerado = resultado.contenidoCsv,
+                    mensajeExito = "Archivo ${resultado.nombreArchivo} guardado y ${resultado.cantidadRegistros} rendición(es) pagada(s) en ERP."
                 )
             }
         }

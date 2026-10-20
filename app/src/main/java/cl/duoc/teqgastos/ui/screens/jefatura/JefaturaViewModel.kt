@@ -22,30 +22,53 @@ enum class AccionRevisionJefatura(val etiqueta: String, val estadoDestino: Strin
 }
 
 /**
+ * Detalle auditado de un ítem de gasto individual para la vista de inspección de Jefatura (Fase 7).
+ */
+data class GastoAuditadoUi(
+    val gasto: GastoEntity,
+    val cumpleTope: Boolean,
+    val detalleTope: String,
+    val topeMaximoClp: Double
+)
+
+/**
  * Modelo enriquecido para las tarjetas de evaluación de Jefatura (`ManagerScreen` de Figma).
+ * Incluye el desglose completo de gastos (`gastosAuditados`), fotos, coordenadas GPS y validación de topes.
  */
 data class ItemEvaluacionJefatura(
     val rendicionId: Int,
     val nombreTecnico: String,
     val iniciales: String,
-    val rutProveedor: String,
-    val folioBoleta: String,
-    val categoria: String,
+    val centroCosto: String,
+    val medioPago: String,
+    val rutProveedorPrincipal: String,
+    val folioPrincipal: String,
+    val categoriaPrincipal: String,
     val montoTotalClp: Double,
     val estado: String,
-    val comentarioRevision: String?
+    val comentarioRevision: String?,
+    val gastosAuditados: List<GastoAuditadoUi>,
+    val todosCumplenTope: Boolean
 )
 
 data class JefaturaUiState(
     val searchQuery: String = "",
     val mostrarSoloPendientes: Boolean = true,
     val tabActiva: String = "Inicio",
+    val rendicionExpandidaId: Int? = null,
+    val gastoInspeccionado: GastoAuditadoUi? = null,
     val itemEnModal: ItemEvaluacionJefatura? = null,
     val accionModal: AccionRevisionJefatura? = null,
     val comentarioModal: String = "",
-    val comentarioError: String? = null
+    val comentarioError: String? = null,
+    val mensajeFeedback: String? = null
 )
 
+/**
+ * ViewModel para el rol JEFATURA (Fase 7).
+ * Lista todas las rendiciones enviadas, expone el desglose de gastos con auditoría de topes,
+ * foto de boleta y GPS, y exige comentario obligatorio validado antes de Observar o Rechazar en Room.
+ */
 class JefaturaViewModel(
     private val repository: TeqGastosRepository
 ) : ViewModel() {
@@ -59,7 +82,23 @@ class JefaturaViewModel(
     ) { rendiciones, gastos ->
         val gastosPorRendicion = gastos.groupBy { it.rendicionId }
         rendiciones.map { rendicion ->
-            val primerGasto = gastosPorRendicion[rendicion.id]?.firstOrNull()
+            val listaGastos = gastosPorRendicion[rendicion.id].orEmpty()
+            val gastosAuditados = listaGastos.map { g ->
+                val errorTope = GastoValidator.validarTopePorCategoria(
+                    categoria = g.categoria,
+                    montoOriginal = g.montoOriginal,
+                    moneda = g.moneda
+                )
+                val topeMax = GastoValidator.obtenerTopeCategoriaClp(g.categoria) ?: 0.0
+                GastoAuditadoUi(
+                    gasto = g,
+                    cumpleTope = (errorTope == null),
+                    detalleTope = errorTope ?: "Cumple tope (${GastoValidator.formatearClp(topeMax)} CLP)",
+                    topeMaximoClp = topeMax
+                )
+            }
+
+            val primerGasto = listaGastos.firstOrNull()
             val partesNombre = rendicion.nombreTecnico.trim().split(" ").filter { it.isNotBlank() }
             val iniciales = partesNombre.take(2).joinToString("") { it.take(1).uppercase() }.ifEmpty { "TQ" }
 
@@ -67,14 +106,18 @@ class JefaturaViewModel(
                 rendicionId = rendicion.id,
                 nombreTecnico = rendicion.nombreTecnico,
                 iniciales = iniciales,
-                rutProveedor = primerGasto?.rutProveedor ?: "76.123.456-7",
-                folioBoleta = primerGasto?.folioBoleta?.let {
+                centroCosto = rendicion.centroCosto,
+                medioPago = rendicion.medioPago,
+                rutProveedorPrincipal = primerGasto?.rutProveedor ?: "76.123.456-7",
+                folioPrincipal = primerGasto?.folioBoleta?.let {
                     if (it.startsWith("F-") || it.startsWith("B-")) it else "F-$it"
                 } ?: "F-00${rendicion.id}",
-                categoria = primerGasto?.categoria ?: GastoEntity.CAT_ALIMENTACION,
+                categoriaPrincipal = primerGasto?.categoria ?: GastoEntity.CAT_ALIMENTACION,
                 montoTotalClp = rendicion.montoTotalClp,
                 estado = rendicion.estado,
-                comentarioRevision = rendicion.comentarioRevision
+                comentarioRevision = rendicion.comentarioRevision,
+                gastosAuditados = gastosAuditados,
+                todosCumplenTope = gastosAuditados.all { it.cumpleTope }
             )
         }
     }.stateIn(
@@ -95,18 +138,36 @@ class JefaturaViewModel(
         _uiState.update {
             it.copy(
                 tabActiva = tab,
-                mostrarSoloPendientes = (tab == "Inicio" || tab == "Rendiciones")
+                mostrarSoloPendientes = (tab == "Inicio" || tab == "Rendiciones"),
+                mensajeFeedback = null
             )
         }
     }
 
-    fun aprobarRendicion(rendicionId: Int) {
+    fun alternarExpansionRendicion(rendicionId: Int) {
+        _uiState.update { actual ->
+            actual.copy(
+                rendicionExpandidaId = if (actual.rendicionExpandidaId == rendicionId) null else rendicionId
+            )
+        }
+    }
+
+    fun inspeccionarGasto(gastoAuditado: GastoAuditadoUi?) {
+        _uiState.update { it.copy(gastoInspeccionado = gastoAuditado) }
+    }
+
+    fun aprobarRendicion(item: ItemEvaluacionJefatura) {
         viewModelScope.launch {
             repository.resolverRevisionJefatura(
-                rendicionId = rendicionId,
+                rendicionId = item.rendicionId,
                 nuevoEstado = RendicionEntity.ESTADO_APROBADA,
-                comentarioRevision = "Aprobado por Jefatura"
+                comentarioRevision = "Aprobado por Jefatura conforme a política TEQMED SPA"
             )
+            _uiState.update {
+                it.copy(
+                    mensajeFeedback = "Rendición #${item.rendicionId} de ${item.nombreTecnico} APROBADA y enviada a Finanzas."
+                )
+            }
         }
     }
 
@@ -116,7 +177,8 @@ class JefaturaViewModel(
                 itemEnModal = item,
                 accionModal = accion,
                 comentarioModal = "",
-                comentarioError = null
+                comentarioError = null,
+                mensajeFeedback = null
             )
         }
     }
@@ -144,6 +206,10 @@ class JefaturaViewModel(
         }
     }
 
+    /**
+     * Valida obligatoriamente el comentario de observación/rechazo mediante `GastoValidator`
+     * antes de actualizar el estado en Room.
+     */
     fun confirmarAccionModal() {
         val actual = _uiState.value
         val item = actual.itemEnModal ?: return
@@ -161,7 +227,15 @@ class JefaturaViewModel(
                 nuevoEstado = accion.estadoDestino,
                 comentarioRevision = actual.comentarioModal.trim()
             )
-            cerrarModalRevision()
+            _uiState.update {
+                it.copy(
+                    itemEnModal = null,
+                    accionModal = null,
+                    comentarioModal = "",
+                    comentarioError = null,
+                    mensajeFeedback = "Rendición #${item.rendicionId} marcada como ${accion.estadoDestino}."
+                )
+            }
         }
     }
 }

@@ -1,11 +1,15 @@
 package cl.duoc.teqgastos.ui.screens.jefatura
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -29,31 +33,38 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Comment
 import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Hotel
 import androidx.compose.material.icons.filled.LocalGasStation
 import androidx.compose.material.icons.filled.LocalParking
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material.icons.filled.Restaurant
+import androidx.compose.material.icons.filled.VerifiedUser
+import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -65,6 +76,7 @@ import cl.duoc.teqgastos.data.local.entities.RendicionEntity
 import cl.duoc.teqgastos.domain.validators.GastoValidator
 import cl.duoc.teqgastos.ui.components.TeqAppHeader
 import cl.duoc.teqgastos.ui.components.TeqBottomNav
+import cl.duoc.teqgastos.ui.components.ValidatedTextField
 import cl.duoc.teqgastos.ui.theme.TeqApproveBg
 import cl.duoc.teqgastos.ui.theme.TeqApproveText
 import cl.duoc.teqgastos.ui.theme.TeqBackground
@@ -82,13 +94,22 @@ import cl.duoc.teqgastos.ui.theme.TeqPendingPillText
 import cl.duoc.teqgastos.ui.theme.TeqRejectBg
 import cl.duoc.teqgastos.ui.theme.TeqRejectBtnBg
 import cl.duoc.teqgastos.ui.theme.TeqRejectText
+import cl.duoc.teqgastos.ui.theme.TeqTeal
 import cl.duoc.teqgastos.ui.theme.TeqTealDark
+import cl.duoc.teqgastos.ui.theme.TeqTealIconBg
 import cl.duoc.teqgastos.ui.theme.TeqTealMid
+import cl.duoc.teqgastos.utils.NativeResourcesHelper
 
 /**
- * Pantalla de Jefatura (`ManagerScreen` de Figma `src-interface/App.tsx`).
- * Permite auditar rendiciones pendientes, aprobarlas directamente o abrir el modal
- * de Observación/Rechazo con justificación obligatoria validada por `GastoValidator`.
+ * Pantalla de Jefatura (`ManagerScreen` de Figma - Fase 7).
+ *
+ * Cumple con:
+ * - Listar todas las rendiciones enviadas por el equipo técnico.
+ * - Inspeccionar el desglose completo de gastos (`animateContentSize` + visor de boleta) mostrando
+ *   la fotografía de la boleta, coordenadas GPS y validación de si cumple los topes por categoría.
+ * - Botones de decisión "Aprobar", "Observar" y "Rechazar".
+ * - Modal de Observación/Rechazo con campo obligatorio validado mediante `ValidatedTextField`
+ *   (con ícono de error en rojo y `AnimatedVisibility`) antes de guardar en Room.
  */
 @Composable
 fun JefaturaScreen(
@@ -104,9 +125,9 @@ fun JefaturaScreen(
     val listaFiltrada = listaBase.filter { item ->
         uiState.searchQuery.isBlank() ||
             item.nombreTecnico.contains(uiState.searchQuery, ignoreCase = true) ||
-            item.rutProveedor.contains(uiState.searchQuery, ignoreCase = true) ||
-            item.folioBoleta.contains(uiState.searchQuery, ignoreCase = true) ||
-            item.categoria.contains(uiState.searchQuery, ignoreCase = true)
+            item.rutProveedorPrincipal.contains(uiState.searchQuery, ignoreCase = true) ||
+            item.folioPrincipal.contains(uiState.searchQuery, ignoreCase = true) ||
+            item.categoriaPrincipal.contains(uiState.searchQuery, ignoreCase = true)
     }
 
     val montoTotalPendientes = pendientes.sumOf { it.montoTotalClp }
@@ -130,7 +151,7 @@ fun JefaturaScreen(
             TeqAppHeader(
                 eyebrow = "JEFATURA",
                 title = "Por evaluar",
-                subtitle = "Revisa los gastos enviados por tu equipo.",
+                subtitle = "Revisa los gastos, fotos, GPS y cumplimiento de topes.",
                 userInitials = "AS",
                 searchQuery = uiState.searchQuery,
                 onSearchChange = viewModel::onSearchQueryChange,
@@ -143,6 +164,41 @@ fun JefaturaScreen(
                     .fillMaxWidth()
                     .padding(horizontal = 17.dp, vertical = 17.dp)
             ) {
+                // Banner animado de confirmación de decisión
+                AnimatedVisibility(
+                    visible = uiState.mensajeFeedback != null,
+                    enter = fadeIn() + expandVertically(),
+                    exit = fadeOut() + shrinkVertically()
+                ) {
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 13.dp),
+                        color = TeqApproveBg,
+                        shape = RoundedCornerShape(14.dp),
+                        border = BorderStroke(1.dp, TeqApproveText.copy(alpha = 0.25f))
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(13.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.CheckCircle,
+                                contentDescription = null,
+                                tint = TeqApproveText,
+                                modifier = Modifier.size(19.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = uiState.mensajeFeedback.orEmpty(),
+                                color = TeqApproveText,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+
                 // =============================================================
                 // 1. TARJETA RESUMEN GRADIENTE TEAL (.summary-card)
                 // =============================================================
@@ -158,7 +214,6 @@ fun JefaturaScreen(
                         )
                         .padding(20.dp)
                 ) {
-                    // Anillo decorativo inferior derecho (.summary-card::after)
                     Box(
                         modifier = Modifier
                             .size(160.dp)
@@ -171,7 +226,6 @@ fun JefaturaScreen(
                         modifier = Modifier.fillMaxSize(),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Columna izquierda: Cantidad de pendientes
                         Column {
                             Text(
                                 text = "PENDIENTES",
@@ -201,7 +255,6 @@ fun JefaturaScreen(
 
                         Spacer(modifier = Modifier.width(24.dp))
 
-                        // Divisor vertical
                         Box(
                             modifier = Modifier
                                 .width(1.dp)
@@ -211,7 +264,6 @@ fun JefaturaScreen(
 
                         Spacer(modifier = Modifier.width(20.dp))
 
-                        // Columna central: Monto Total
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = "MONTO TOTAL",
@@ -236,7 +288,6 @@ fun JefaturaScreen(
                         }
                     }
 
-                    // Ícono de reloj superior derecho (.summary-icon)
                     Box(
                         modifier = Modifier
                             .size(39.dp)
@@ -279,7 +330,7 @@ fun JefaturaScreen(
                             text = if (uiState.mostrarSoloPendientes) {
                                 "Rendiciones recientes"
                             } else {
-                                "Todas las rendiciones"
+                                "Historial de auditoría"
                             },
                             color = TeqNavy,
                             fontSize = 18.sp,
@@ -305,7 +356,7 @@ fun JefaturaScreen(
                             )
                             Spacer(modifier = Modifier.width(5.dp))
                             Text(
-                                text = if (uiState.mostrarSoloPendientes) "Ver historial" else "Solo pendientes",
+                                text = if (uiState.mostrarSoloPendientes) "Ver todas" else "Solo pendientes",
                                 color = Color(0xFF72818D),
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold
@@ -317,10 +368,9 @@ fun JefaturaScreen(
                 Spacer(modifier = Modifier.height(13.dp))
 
                 // =============================================================
-                // 3. LISTA DE RENDICIONES (.expense-list / .expense-card)
+                // 3. LISTA DE RENDICIONES CON DESGLOSE DE GASTOS (.expense-list)
                 // =============================================================
                 if (listaFiltrada.isEmpty()) {
-                    // Estado vacío fiel a `.empty-state` de Figma
                     Surface(
                         shape = RoundedCornerShape(19.dp),
                         color = Color.White,
@@ -366,9 +416,17 @@ fun JefaturaScreen(
                 } else {
                     Column(verticalArrangement = Arrangement.spacedBy(11.dp)) {
                         listaFiltrada.forEach { item ->
+                            val expandida = uiState.rendicionExpandidaId == item.rendicionId
                             ExpenseReviewCardFigma(
                                 item = item,
-                                onApprove = { viewModel.aprobarRendicion(item.rendicionId) },
+                                expandida = expandida,
+                                onToggleExpand = {
+                                    viewModel.alternarExpansionRendicion(item.rendicionId)
+                                },
+                                onInspeccionarGasto = { gastoAuditado ->
+                                    viewModel.inspeccionarGasto(gastoAuditado)
+                                },
+                                onApprove = { viewModel.aprobarRendicion(item) },
                                 onObserve = {
                                     viewModel.abrirModalRevision(
                                         item = item,
@@ -390,7 +448,17 @@ fun JefaturaScreen(
     }
 
     // =========================================================================
-    // 4. MODAL DE JUSTIFICACIÓN OBLIGATORIA (.action-modal en Figma)
+    // 4. VISOR DE BOLETA, GPS Y CUMPLIMIENTO DE TOPES (Inspección Jefatura)
+    // =========================================================================
+    uiState.gastoInspeccionado?.let { gastoAuditado ->
+        InspeccionBoletaDialog(
+            gastoAuditado = gastoAuditado,
+            onDismiss = { viewModel.inspeccionarGasto(null) }
+        )
+    }
+
+    // =========================================================================
+    // 5. MODAL DE OBSERVACIÓN / RECHAZO CON ValidatedTextField OBLIGATORIO
     // =========================================================================
     val itemModal = uiState.itemEnModal
     val accionModal = uiState.accionModal
@@ -408,7 +476,6 @@ fun JefaturaScreen(
                         .fillMaxWidth()
                         .padding(24.dp)
                 ) {
-                    // Fila superior: Ícono de acción + botón cerrar
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -449,7 +516,7 @@ fun JefaturaScreen(
                     Spacer(modifier = Modifier.height(16.dp))
 
                     Text(
-                        text = "${accionModal.etiqueta.uppercase()} RENDICIÓN",
+                        text = "${accionModal.etiqueta.uppercase()} RENDICIÓN #${itemModal.rendicionId}",
                         color = TeqMutedText,
                         fontSize = 9.sp,
                         fontWeight = FontWeight.ExtraBold,
@@ -477,67 +544,21 @@ fun JefaturaScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    Text(
-                        text = "Justificación obligatoria",
-                        color = TeqLabelText,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold
+                    // Campo de comentario obligatorio validado con ValidatedTextField (ícono de error + AnimatedVisibility)
+                    ValidatedTextField(
+                        value = uiState.comentarioModal,
+                        onValueChange = viewModel::onComentarioModalChange,
+                        label = "Justificación obligatoria (${uiState.comentarioModal.length}/240)",
+                        placeholder = "Escribe una explicación clara (mín. 5 caracteres)...",
+                        errorMessage = uiState.comentarioError,
+                        leadingIcon = Icons.Default.Comment,
+                        singleLine = false
                     )
 
-                    Spacer(modifier = Modifier.height(6.dp))
-
-                    Box(modifier = Modifier.fillMaxWidth()) {
-                        OutlinedTextField(
-                            value = uiState.comentarioModal,
-                            onValueChange = viewModel::onComentarioModalChange,
-                            placeholder = {
-                                Text(
-                                    text = "Escribe una explicación clara...",
-                                    color = TeqMutedText,
-                                    fontSize = 12.sp
-                                )
-                            },
-                            isError = uiState.comentarioError != null,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(108.dp),
-                            shape = RoundedCornerShape(13.dp),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedContainerColor = Color(0xFFFBFCFC),
-                                unfocusedContainerColor = Color(0xFFFBFCFC),
-                                focusedBorderColor = TeqTealMid,
-                                unfocusedBorderColor = TeqBorder
-                            )
-                        )
-                        Text(
-                            text = "${uiState.comentarioModal.length}/240",
-                            color = TeqMutedText,
-                            fontSize = 9.sp,
-                            modifier = Modifier
-                                .align(Alignment.BottomEnd)
-                                .padding(end = 10.dp, bottom = 8.dp)
-                        )
-                    }
-
-                    AnimatedVisibility(
-                        visible = uiState.comentarioError != null,
-                        enter = fadeIn() + expandVertically(),
-                        exit = fadeOut() + shrinkVertically()
-                    ) {
-                        Text(
-                            text = uiState.comentarioError.orEmpty(),
-                            color = MaterialTheme.colorScheme.error,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Medium,
-                            modifier = Modifier.padding(top = 5.dp)
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(14.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
                     Button(
                         onClick = viewModel::confirmarAccionModal,
-                        enabled = uiState.comentarioModal.trim().isNotEmpty(),
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(48.dp),
@@ -562,11 +583,14 @@ fun JefaturaScreen(
 @Composable
 private fun ExpenseReviewCardFigma(
     item: ItemEvaluacionJefatura,
+    expandida: Boolean,
+    onToggleExpand: () -> Unit,
+    onInspeccionarGasto: (GastoAuditadoUi) -> Unit,
     onApprove: () -> Unit,
     onObserve: () -> Unit,
     onReject: () -> Unit
 ) {
-    val (iconoCat, nombreCat) = obtenerIconoYNombreCategoria(item.categoria)
+    val (iconoCat, nombreCat) = obtenerIconoYNombreCategoria(item.categoriaPrincipal)
     val esPendiente = item.estado == RendicionEntity.ESTADO_PENDIENTE_JEFATURA
 
     val (pillBg, pillText, pillLabel) = when (item.estado) {
@@ -581,8 +605,15 @@ private fun ExpenseReviewCardFigma(
     Surface(
         shape = RoundedCornerShape(19.dp),
         color = Color.White,
-        border = BorderStroke(1.dp, TeqCardBorder),
-        modifier = Modifier.fillMaxWidth()
+        border = BorderStroke(1.dp, if (expandida) TeqTealMid else TeqCardBorder),
+        modifier = Modifier
+            .fillMaxWidth()
+            .animateContentSize(
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioNoBouncy,
+                    stiffness = Spring.StiffnessMediumLow
+                )
+            )
     ) {
         Column(
             modifier = Modifier
@@ -593,6 +624,7 @@ private fun ExpenseReviewCardFigma(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .clickable(onClick = onToggleExpand)
                     .padding(bottom = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -621,9 +653,9 @@ private fun ExpenseReviewCardFigma(
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = item.rutProveedor,
+                        text = "${item.rutProveedorPrincipal} · ${item.centroCosto}",
                         color = TeqMutedText,
-                        fontSize = 10.sp
+                        fontSize = 9.sp
                     )
                 }
 
@@ -649,70 +681,106 @@ private fun ExpenseReviewCardFigma(
                     .background(TeqDivider)
             )
 
-            // 2. Cuerpo del gasto (.expense-body)
+            // 2. Cuerpo principal del gasto (.expense-body)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 13.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Miniatura recibo (.receipt-thumb)
+                // Botón miniatura recibo (.receipt-thumb) -> Abre visor de boleta, foto, GPS y tope
                 Column(
                     modifier = Modifier
                         .size(width = 60.dp, height = 67.dp)
                         .clip(RoundedCornerShape(11.dp))
-                        .background(Color(0xFFEEF1F3)),
+                        .background(Color(0xFFEEF1F3))
+                        .clickable {
+                            item.gastosAuditados.firstOrNull()?.let(onInspeccionarGasto)
+                        },
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
                     Icon(
                         imageVector = Icons.Default.Receipt,
                         contentDescription = "Ver boleta",
-                        tint = Color(0xFF81909B),
-                        modifier = Modifier.size(25.dp)
+                        tint = TeqTealDark,
+                        modifier = Modifier.size(24.dp)
                     )
-                    Spacer(modifier = Modifier.height(2.dp))
+                    Spacer(modifier = Modifier.height(3.dp))
                     Text(
-                        text = "VER",
-                        color = Color(0xFF81909B),
+                        text = "VER FOTO",
+                        color = TeqTealDark,
                         fontSize = 7.sp,
                         fontWeight = FontWeight.ExtraBold,
-                        letterSpacing = 0.8.sp
+                        letterSpacing = 0.6.sp
                     )
                 }
 
                 Spacer(modifier = Modifier.width(12.dp))
 
                 Column(modifier = Modifier.weight(1f)) {
-                    // Categoría pill (.expense-category)
-                    Surface(
-                        shape = RoundedCornerShape(7.dp),
-                        color = Color(0xFFE6FAF8)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                        Surface(
+                            shape = RoundedCornerShape(7.dp),
+                            color = Color(0xFFE6FAF8)
                         ) {
-                            Icon(
-                                imageVector = iconoCat,
-                                contentDescription = null,
-                                tint = TeqTealDark,
-                                modifier = Modifier.size(13.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = nombreCat,
-                                color = TeqTealDark,
-                                fontSize = 9.sp,
-                                fontWeight = FontWeight.Bold
-                            )
+                            Row(
+                                modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = iconoCat,
+                                    contentDescription = null,
+                                    tint = TeqTealDark,
+                                    modifier = Modifier.size(13.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = nombreCat,
+                                    color = TeqTealDark,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+
+                        // Badge de auditoría de topes
+                        Surface(
+                            shape = RoundedCornerShape(7.dp),
+                            color = if (item.todosCumplenTope) TeqApproveBg else TeqRejectBg
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = if (item.todosCumplenTope) {
+                                        Icons.Default.VerifiedUser
+                                    } else {
+                                        Icons.Default.ErrorOutline
+                                    },
+                                    contentDescription = null,
+                                    tint = if (item.todosCumplenTope) TeqApproveText else TeqRejectText,
+                                    modifier = Modifier.size(11.dp)
+                                )
+                                Spacer(modifier = Modifier.width(3.dp))
+                                Text(
+                                    text = if (item.todosCumplenTope) "Cumple tope" else "Excede tope",
+                                    color = if (item.todosCumplenTope) TeqApproveText else TeqRejectText,
+                                    fontSize = 8.sp,
+                                    fontWeight = FontWeight.ExtraBold
+                                )
+                            }
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(7.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
 
                     Text(
-                        text = "FOLIO ${item.folioBoleta}",
+                        text = "FOLIO ${item.folioPrincipal} · ${item.gastosAuditados.size} ítem(s)",
                         color = TeqMutedText,
                         fontSize = 9.sp,
                         fontWeight = FontWeight.Bold,
@@ -721,32 +789,153 @@ private fun ExpenseReviewCardFigma(
 
                     Spacer(modifier = Modifier.height(4.dp))
 
-                    Row(verticalAlignment = Alignment.Bottom) {
-                        Text(
-                            text = GastoValidator.formatearClp(item.montoTotalClp),
-                            color = TeqNavy,
-                            fontSize = 17.sp,
-                            fontWeight = FontWeight.ExtraBold
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "CLP",
-                            color = TeqMutedText,
-                            fontSize = 9.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(bottom = 2.dp)
-                        )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.Bottom
+                    ) {
+                        Row(verticalAlignment = Alignment.Bottom) {
+                            Text(
+                                text = GastoValidator.formatearClp(item.montoTotalClp),
+                                color = TeqNavy,
+                                fontSize = 17.sp,
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "CLP",
+                                color = TeqMutedText,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(bottom = 2.dp)
+                            )
+                        }
+
+                        Row(
+                            modifier = Modifier.clickable(onClick = onToggleExpand),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = if (expandida) "Ocultar desglose" else "Desglose",
+                                color = TeqTealDark,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Icon(
+                                imageVector = if (expandida) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                                contentDescription = null,
+                                tint = TeqTealDark,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
                     }
                 }
             }
 
-            // 3. Botones de Acción (.expense-actions) si está pendiente
+            // 3. Desglose expandible de gastos (Foto, GPS, Topes)
+            if (expandida && item.gastosAuditados.isNotEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(1.dp)
+                        .background(TeqDivider)
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                Text(
+                    text = "DESGLOSE DE ÍTEMS Y AUDITORÍA DE TOPES",
+                    color = TeqMutedText,
+                    fontSize = 8.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    letterSpacing = 1.0.sp
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                    item.gastosAuditados.forEach { auditado ->
+                        val g = auditado.gasto
+                        val (_, catNombre) = obtenerIconoYNombreCategoria(g.categoria)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(11.dp))
+                                .background(Color(0xFFF8FAFB))
+                                .border(1.dp, TeqBorder, RoundedCornerShape(11.dp))
+                                .clickable { onInspeccionarGasto(auditado) }
+                                .padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = "$catNombre · Folio ${g.folioBoleta}",
+                                        color = TeqNavy,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    if (g.origenTeqRuta) {
+                                        Spacer(modifier = Modifier.width(5.dp))
+                                        Surface(
+                                            shape = RoundedCornerShape(4.dp),
+                                            color = TeqNavy
+                                        ) {
+                                            Text(
+                                                text = "TeqRuta",
+                                                color = TeqTeal,
+                                                fontSize = 7.sp,
+                                                fontWeight = FontWeight.ExtraBold,
+                                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                                Text(
+                                    text = "RUT: ${g.rutProveedor} · ${auditado.detalleTope}",
+                                    color = if (auditado.cumpleTope) TeqApproveText else TeqRejectText,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Text(
+                                    text = "GPS: ${g.latitud ?: -36.8270}, ${g.longitud ?: -73.0503}",
+                                    color = TeqMutedText,
+                                    fontSize = 8.sp
+                                )
+                            }
+
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text(
+                                    text = GastoValidator.formatearClp(g.montoConvertidoClp),
+                                    color = TeqNavy,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.ExtraBold
+                                )
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Default.Visibility,
+                                        contentDescription = "Ver foto",
+                                        tint = TeqTealDark,
+                                        modifier = Modifier.size(12.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(3.dp))
+                                    Text(
+                                        text = "Ver foto",
+                                        color = TeqTealDark,
+                                        fontSize = 8.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+
+            // 4. Botones de Acción (.expense-actions)
             if (esPendiente) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    // Botón Aprobar
                     Button(
                         onClick = onApprove,
                         modifier = Modifier
@@ -772,7 +961,6 @@ private fun ExpenseReviewCardFigma(
                         )
                     }
 
-                    // Botón Observar
                     Button(
                         onClick = onObserve,
                         modifier = Modifier
@@ -798,7 +986,6 @@ private fun ExpenseReviewCardFigma(
                         )
                     }
 
-                    // Botón Rechazar
                     Button(
                         onClick = onReject,
                         modifier = Modifier
@@ -826,11 +1013,229 @@ private fun ExpenseReviewCardFigma(
                 }
             } else if (!item.comentarioRevision.isNullOrBlank()) {
                 Text(
-                    text = "Observación: ${item.comentarioRevision}",
+                    text = "Resolución Jefatura: ${item.comentarioRevision}",
                     color = TeqLabelText,
                     fontSize = 10.sp,
                     modifier = Modifier.padding(top = 4.dp)
                 )
+            }
+        }
+    }
+}
+
+/**
+ * Diálogo de inspección detallada para que Jefatura verifique la fotografía de la boleta,
+ * las coordenadas GPS de captura en terreno y el cumplimiento del tope por categoría.
+ */
+@Composable
+private fun InspeccionBoletaDialog(
+    gastoAuditado: GastoAuditadoUi,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    val gasto = gastoAuditado.gasto
+    val (_, nombreCat) = obtenerIconoYNombreCategoria(gasto.categoria)
+    val bitmapReal = remember(gasto.fotoUri) {
+        NativeResourcesHelper.cargarMiniaturaDesdeUri(context, gasto.fotoUri)
+    }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = RoundedCornerShape(24.dp),
+            color = Color.White,
+            shadowElevation = 20.dp,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(22.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "AUDITORÍA DE COMPROBANTE",
+                            color = TeqMutedText,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            letterSpacing = 1.3.sp
+                        )
+                        Text(
+                            text = "Boleta Folio ${gasto.folioBoleta}",
+                            color = TeqNavy,
+                            fontSize = 19.sp,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                    }
+
+                    Surface(
+                        onClick = onDismiss,
+                        shape = RoundedCornerShape(10.dp),
+                        color = Color(0xFFF0F3F5),
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Cerrar",
+                                tint = TeqMutedText,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Vista de la fotografía de la boleta
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(175.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(Color(0xFFF4F6F8))
+                        .border(1.dp, TeqBorder, RoundedCornerShape(16.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (bitmapReal != null) {
+                        Image(
+                            bitmap = bitmapReal,
+                            contentDescription = "Fotografía de boleta",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    } else {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.padding(16.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Receipt,
+                                contentDescription = null,
+                                tint = TeqTealDark,
+                                modifier = Modifier.size(40.dp)
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = "COMPROBANTE ELECTRÓNICO SII",
+                                color = TeqNavy,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                            Text(
+                                text = "RUT Proveedor: ${gasto.rutProveedor} · Folio: ${gasto.folioBoleta}",
+                                color = TeqLabelText,
+                                fontSize = 10.sp
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "URI: ${gasto.fotoUri ?: "Sin adjunto"}",
+                                color = TeqMutedText,
+                                fontSize = 8.sp,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Verificación de Tope por Categoría
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = if (gastoAuditado.cumpleTope) TeqApproveBg else TeqRejectBg,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = if (gastoAuditado.cumpleTope) {
+                                Icons.Default.VerifiedUser
+                            } else {
+                                Icons.Default.ErrorOutline
+                            },
+                            contentDescription = null,
+                            tint = if (gastoAuditado.cumpleTope) TeqApproveText else TeqRejectText,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column {
+                            Text(
+                                text = "$nombreCat · ${GastoValidator.formatearClp(gasto.montoConvertidoClp)} CLP (${gasto.moneda})",
+                                color = if (gastoAuditado.cumpleTope) TeqApproveText else TeqRejectText,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                            Text(
+                                text = gastoAuditado.detalleTope,
+                                color = if (gastoAuditado.cumpleTope) TeqApproveText else TeqRejectText,
+                                fontSize = 10.sp
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Coordenadas GPS capturadas en terreno
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(0xFFF0FAF5),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.LocationOn,
+                            contentDescription = null,
+                            tint = Color(0xFF299C69),
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column {
+                            Text(
+                                text = "GEORREFERENCIACIÓN GPS EN TERRENO",
+                                color = Color(0xFF52A47B),
+                                fontSize = 8.sp,
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                            Text(
+                                text = "Lat: ${gasto.latitud ?: -36.8270}, Lon: ${gasto.longitud ?: -73.0503}",
+                                color = Color(0xFF3F6855),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Button(
+                    onClick = onDismiss,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(44.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = TeqNavy,
+                        contentColor = Color.White
+                    )
+                ) {
+                    Text(
+                        text = "Cerrar inspección",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
         }
     }

@@ -28,9 +28,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.FilterList
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -40,12 +43,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cl.duoc.teqgastos.data.local.entities.RendicionEntity
 import cl.duoc.teqgastos.domain.validators.GastoValidator
@@ -65,11 +70,12 @@ import cl.duoc.teqgastos.ui.theme.TeqNavy
 import cl.duoc.teqgastos.ui.theme.TeqTeal
 import cl.duoc.teqgastos.ui.theme.TeqTealDark
 import cl.duoc.teqgastos.ui.theme.TeqTealIconBg
+import cl.duoc.teqgastos.utils.CsvExporter
 
 /**
  * Pantalla de Finanzas (`FinanceScreen` de Figma `src-interface/App.tsx`).
- * Muestra el consolidado listo para desembolso, el listado de rendiciones aprobadas
- * y la tarjeta de integración ERP para registrar el código de pago final y exportar el CSV.
+ * Filtra las rendiciones en estado `APROBADA`, permite registrar el código de transferencia/reembolso
+ * y genera el archivo `.CSV` real en el dispositivo mediante `CsvExporter` con diálogo e Intent para compartirlo.
  */
 @Composable
 fun FinanzasScreen(
@@ -77,6 +83,7 @@ fun FinanzasScreen(
     onLogout: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val todosLosItems by viewModel.itemsFinanzas.collectAsStateWithLifecycle()
 
@@ -280,7 +287,7 @@ fun FinanzasScreen(
                             )
                             Spacer(modifier = Modifier.width(5.dp))
                             Text(
-                                text = if (uiState.mostrarPagadas) "Solo por pagar" else "Incluir pagadas",
+                                text = if (uiState.mostrarPagadas) "Solo APROBADAS" else "Incluir pagadas",
                                 color = Color(0xFF72818D),
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold
@@ -351,15 +358,15 @@ fun FinanzasScreen(
                                             overflow = TextOverflow.Ellipsis
                                         )
                                         Text(
-                                            text = "${item.folioBoleta} · ${item.fechaFormateada}",
+                                            text = "${item.folioBoleta} · ${item.fechaFormateada} · CC ${item.centroCosto}",
                                             color = TeqMutedText,
                                             fontSize = 10.sp
                                         )
                                         Text(
                                             text = if (item.codigoPagoFinanzas != null) {
-                                                "$nombreCat · Pagado (${item.codigoPagoFinanzas})"
+                                                "$nombreCat · PAGADA (${item.codigoPagoFinanzas})"
                                             } else {
-                                                nombreCat
+                                                "$nombreCat · ${item.estado}"
                                             },
                                             color = TeqTealDark,
                                             fontSize = 10.sp,
@@ -459,8 +466,8 @@ fun FinanzasScreen(
                         Spacer(modifier = Modifier.height(14.dp))
 
                         TeqPrimaryButton(
-                            text = "Exportar ERP (.CSV)",
-                            onClick = viewModel::exportarErpCsv,
+                            text = "Exportar a ERP (.CSV)",
+                            onClick = { viewModel.exportarErpCsv(context) },
                             enabled = uiState.codigoPago.trim().length >= 4,
                             isLoading = uiState.isExporting,
                             trailingIcon = Icons.Default.Download
@@ -532,7 +539,7 @@ fun FinanzasScreen(
                                     ) {
                                         Column(modifier = Modifier.padding(10.dp)) {
                                             Text(
-                                                text = "teqgastos_erp.csv",
+                                                text = "Vista previa: archivo .CSV generado en el dispositivo",
                                                 color = TeqNavy,
                                                 fontSize = 10.sp,
                                                 fontWeight = FontWeight.ExtraBold
@@ -541,7 +548,7 @@ fun FinanzasScreen(
                                             Text(
                                                 text = uiState.csvGenerado.orEmpty(),
                                                 color = TeqNavy,
-                                                fontSize = 10.sp,
+                                                fontSize = 9.sp,
                                                 fontFamily = FontFamily.Monospace
                                             )
                                         }
@@ -550,6 +557,92 @@ fun FinanzasScreen(
                             }
                         }
                     }
+                }
+            }
+        }
+    }
+
+    // =========================================================================
+    // DIÁLOGO DE ARCHIVO CSV GENERADO EN DISPOSITIVO + INTENT PARA COMPARTIR
+    // =========================================================================
+    val resultadoCsv = uiState.resultadoCsvDialog
+    if (resultadoCsv != null) {
+        Dialog(onDismissRequest = viewModel::cerrarDialogoCsv) {
+            Surface(
+                shape = RoundedCornerShape(22.dp),
+                color = Color.White,
+                border = BorderStroke(1.dp, TeqCardBorder),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(18.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "ARCHIVO ERP GENERADO",
+                                color = TeqTealDark,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                letterSpacing = 1.2.sp
+                            )
+                            Text(
+                                text = resultadoCsv.archivo.name,
+                                color = TeqNavy,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                        }
+                        IconButton(onClick = viewModel::cerrarDialogoCsv) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Cerrar",
+                                tint = TeqMutedText
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Text(
+                        text = "Ruta física en dispositivo: ${resultadoCsv.archivo.absolutePath}",
+                        color = TeqMutedText,
+                        fontSize = 10.sp
+                    )
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color(0xFFF4F6F8),
+                        border = BorderStroke(1.dp, TeqBorder),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text(
+                                text = resultadoCsv.contenidoCsv,
+                                color = TeqNavy,
+                                fontSize = 10.sp,
+                                fontFamily = FontFamily.Monospace
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    TeqPrimaryButton(
+                        text = "Compartir / Enviar a ERP (.CSV)",
+                        onClick = {
+                            CsvExporter.compartirArchivoCsv(context, resultadoCsv)
+                        },
+                        trailingIcon = Icons.Default.Share
+                    )
                 }
             }
         }

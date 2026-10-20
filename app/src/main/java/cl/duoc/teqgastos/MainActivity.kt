@@ -10,14 +10,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import cl.duoc.teqgastos.data.local.AppDatabase
 import cl.duoc.teqgastos.data.repository.TeqGastosRepository
-import cl.duoc.teqgastos.ui.navigation.TeqGastosNavGraph
+import cl.duoc.teqgastos.ui.navigation.AppNavGraph
 import cl.duoc.teqgastos.ui.theme.TeqBackground
 import cl.duoc.teqgastos.ui.theme.TeqGastosTheme
 
 /**
  * Actividad principal (Single-Activity Architecture) de TeqGastos.
  * Inicializa la base de datos local Room (`AppDatabase`) y el repositorio (`TeqGastosRepository`)
- * e inyecta el grafo declarativo `TeqGastosNavGraph` con el tema visual de Figma (`TeqGastosTheme`).
+ * e inyecta el grafo declarativo `AppNavGraph` con transiciones suaves y el tema visual (`TeqGastosTheme`).
  */
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -34,7 +34,7 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = TeqBackground
                 ) {
-                    TeqGastosNavGraph(repository = repoRemembered)
+                    AppNavGraph(repository = repoRemembered)
                 }
             }
         }

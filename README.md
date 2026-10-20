@@ -1,141 +1,117 @@
-# TeqGastos — Sistema Móvil de Rendición y Auditoría de Gastos (TEQMED SPA)
+# 📱 TeqGastos — Sistema Móvil de Rendición de Gastos en Terreno (TEQMED SPA)
 
-Aplicación nativa Android desarrollada en **100% Kotlin** con **Jetpack Compose (Material Design 3)** para la asignatura **Desarrollo de Aplicaciones Móviles (DSY1105 - Evaluación Parcial 2)**.
-
----
-
-## 1. Propósito del Proyecto
-
-**TeqGastos** digitaliza, valida y audita de extremo a extremo el proceso de rendición de gastos en terreno para el personal técnico, jefaturas y el área de finanzas de **TEQMED SPA**, eliminando planillas manuales, pérdida de boletas físicas, gastos fuera de plazo y duplicidad de cobros mediante validación tributaria local, conversión multimoneda offline, captura fotográfica y georreferenciación GPS.
+Aplicación móvil nativa para **Android (100% Kotlin + Jetpack Compose + Material Design 3)** desarrollada para digitalizar, auditar y reembolsar el flujo completo de **Rendición de Gastos en Terreno** de los técnicos de servicio de **TEQMED SPA** (Región del Biobío / Concepción).
 
 ---
 
-## 2. Arquitectura y Estructura del Proyecto
+## 👥 Integrantes del Equipo
 
-El proyecto implementa el patrón arquitectónico **MVVM Estricto (Model - View - ViewModel)** con flujo de datos unidireccional (**UDF**) basado en `StateFlow` y persistencia local reactiva en **Room (SQLite)**:
-
-```text
-UI (@Composable Figma) ──► ViewModel (StateFlow) ──► Domain Validators (GastoValidator) ──► Repository ──► Room DAO (SQLite)
-```
-
-### Cumplimiento de Indicadores de Evaluación (Rúbrica EP2)
-- **IE 2.1.1 / IE 2.1.2 (Arquitectura MVVM y Validaciones Desacopladas)**: Ningún `@Composable` contiene lógica de validación. Todas las reglas de negocio residen en `GastoValidator.kt` y son orquestadas en tiempo real desde cada `ViewModel` (`AuthViewModel`, `TecnicoViewModel`, `JefaturaViewModel`, `FinanzasViewModel`).
-- **IE 2.2.1 (Componentes Visuales Validados y Animaciones Funcionales)**: `ValidatedTextField.kt` gestiona automáticamente estados `isError`, íconos semánticos (`Icons.Default.Error` en rojo y `Icons.Default.CheckCircle` en verde) y transiciones fluidas mediante `AnimatedVisibility` (`fadeIn + expandVertically` / `fadeOut + shrinkVertically`).
-- **IE 2.2.2 (Autenticación y Navegación RBAC)**: `LoginScreen.kt` autentica contra Room SQLite, incorpora el **Selector Rápido de Credenciales (Modo Defensa)** y redirige automáticamente a la bandeja de trabajo según el rol (`TECNICO`, `JEFATURA`, `FINANZAS`) mediante `TeqGastosNavGraph.kt`.
-- **IE 2.3.1 (Persistencia Local Offline-First)**: Almacenamiento relacional en SQLite con `AppDatabase`, claves foráneas en cascada, índice compuesto anti-duplicados y semilla automática de datos (`SeedDatabaseCallback`).
-- **IE 2.4.1 (Acceso Seguro a 2 Recursos Nativos e Integración TeqRuta)**:
-  1. **Cámara Nativa**: Configurada con `androidx.core.content.FileProvider` (`res/xml/file_paths.xml`), `NativeResourcesHelper.createImageUri(context)` y `ActivityResultContracts.TakePicture()` con visualización de miniatura en pantalla.
-  2. **Georreferenciación GPS**: Configurada con `FusedLocationProviderClient`, `ActivityResultContracts.RequestMultiplePermissions()` (`ACCESS_FINE_LOCATION` y `ACCESS_COARSE_LOCATION`), manejo explícito de `SecurityException` y coordenadas por defecto de Concepción (`-36.8270, -73.0503`).
-
-### Estructura de Paquetes (`cl.duoc.teqgastos`)
-
-```text
-cl.duoc.teqgastos
-├── MainActivity.kt                              # Punto de entrada Single-Activity + inyección de dependencias Room
-├── data
-│   ├── local
-│   │   ├── dao
-│   │   │   └── TeqGastosDao.kt                  # Consultas reactivas Flow, recálculo CLP y query anti-duplicados
-│   │   ├── entities
-│   │   │   ├── UsuarioEntity.kt                 # Usuarios corporativos y rol (TECNICO, JEFATURA, FINANZAS)
-│   │   │   ├── RendicionEntity.kt               # Cabecera de rendición y máquina de estados de aprobación
-│   │   │   └── GastoEntity.kt                   # Ítem de gasto con FK en cascada, índice compuesto, foto y GPS
-│   │   └── AppDatabase.kt                       # Singleton RoomDatabase + Callback con semilla de datos Figma
-│   └── repository
-│       └── TeqGastosRepository.kt               # Single Source of Truth para los ViewModels
-├── domain
-│   └── validators
-│       └── GastoValidator.kt                    # Reglas puras: RUT, Folio, Fecha 5 días, Conversor UF/USD, Topes CLP
-├── ui
-│   ├── components
-│   │   ├── ValidatedTextField.kt                # OutlinedTextField validado con íconos dinámicos y AnimatedVisibility
-│   │   └── TeqFigmaComponents.kt                # Componentes del sistema Figma: TeqBrand, TeqAppHeader, TeqBottomNav, TeqPrimaryButton
-│   ├── navigation
-│   │   └── TeqGastosNavGraph.kt                 # Grafo declarativo Navigation Compose por rol
-│   ├── screens
-│   │   ├── auth
-│   │   │   ├── AuthViewModel.kt                 # Validación en tiempo real de Login y perfiles Demo
-│   │   │   └── LoginScreen.kt                   # Pantalla de acceso con Hero curvo y selector rápido Modo Defensa
-│   │   ├── tecnico
-│   │   │   ├── TecnicoViewModel.kt              # Orquestador de rendiciones, traslado TeqRuta, Cámara, GPS y anti-duplicados
-│   │   │   ├── TecnicoHomeScreen.kt             # Carpetas de rendición con animateContentSize, creación e importación TeqRuta
-│   │   │   ├── FormularioGastoScreen.kt         # Registro de gasto con TakePicture (FileProvider) y GPS (FusedLocation)
-│   │   │   └── TecnicoScreen.kt                 # Coordinador de vistas del flujo Técnico
-│   │   ├── jefatura
-│   │   │   ├── JefaturaViewModel.kt             # Gestión de bandeja de evaluación, aprobación y observación/rechazo
-│   │   │   └── JefaturaScreen.kt                # Tarjeta resumen teal, tarjetas de evaluación y modal con justificación (0/240)
-│   │   └── finanzas
-│   │       ├── FinanzasViewModel.kt             # Consolidación de reembolsos aprobados y generación de archivo CSV ERP
-│   │       └── FinanzasScreen.kt                # Consolidado de desembolso, detalle de aprobados y exportación ERP (.CSV)
-│   └── theme
-│       └── TeqTheme.kt                          # Paleta oficial extraída de Figma (#1B2A4A Navy, #00D2C4 Teal, #F4F6F8 Surface)
-└── utils
-    └── NativeResourcesHelper.kt                 # Acceso seguro a Cámara (FileProvider) y GPS (FusedLocationProviderClient)
-```
-
-> **Referencia de Diseño Figma**: La carpeta [`app/src-interface/`](file:///Users/hoxtxndev/Desktop/proyecto-semestral/Proyecto-semestral/app/src-interface/App.tsx) conserva la maqueta original exportada desde Figma (`App.tsx` e `index.css`) a partir de la cual se construyó la interfaz nativa en Jetpack Compose.
-
----
-
-## 3. Reglas de Negocio y Validaciones (`GastoValidator.kt`)
-
-| Regla | Método en `GastoValidator` | Criterio de Validación |
+| Integrante | Rol en el Proyecto | Institución / Asignatura |
 | :--- | :--- | :--- |
-| **RUT Proveedor** | `validarRutProveedor(rut)` | Obligatorio; acepta formato con puntos (`XX.XXX.XXX-X`) o sin puntos con guion (`XXXXXXXX-X`). |
-| **Folio de Boleta** | `validarFolioBoleta(folio)` | Obligatorio, exclusivamente numérico y mayor a `0`. |
-| **Fecha del Gasto** | `validarFechaGasto(fechaMillis)` | No puede ser futura ni superar los **5 días de antigüedad** respecto a `System.currentTimeMillis()`. |
-| **Conversor Offline** | `convertirAClp(monto, moneda)` | Convierte montos en `UF` (**\$38.000 CLP** configurable/fijo), `USD` (**\$950 CLP**) o `CLP` (`1:1`) antes de evaluar topes. |
-| **Topes por Categoría** | `validarTopePorCategoria(...)` | Evalúa el monto convertido a CLP según la categoría seleccionada:<br>• `ALIMENTACION`: máx **\$15.000 CLP**<br>• `ALOJAMIENTO`: máx **\$65.000 CLP**<br>• `PEAJE_ESTACIONAMIENTO`: máx **\$25.000 CLP**<br>• `COMBUSTIBLE`: máx **\$60.000 CLP**<br>• `INSUMOS`: máx **\$50.000 CLP** |
-| **Evidencia Fotográfica** | `validarFotoComprobante(fotoUri)` | Exige que exista `fotoUri` adjunta del comprobante o boleta. |
-| **Control Anti-Fraude** | `repository.existeBoletaDuplicada(...)` | Bloquea en SQLite cualquier documento que repita la combinación **RUT Proveedor + Folio Boleta + Monto Original**. |
-| **Auditoría Jefatura** | `validarComentarioRevision(...)` | Exige justificación obligatoria (mínimo 5 caracteres, máx 240) al **Observar** o **Rechazar** una rendición. |
-| **Cierre Contable ERP** | `validarCodigoPagoErp(codigo)` | Exige un código de transferencia/pago ERP válido (ej. `PAG-2025-0041`) antes de exportar el `.CSV` y cerrar las rendiciones. |
+| **Horacio Navarrete** | Arquitectura MVVM, Persistencia Room, Recursos Nativos (Cámara/GPS) y Flujo Técnico / TeqRuta | Duoc UC — Desarrollo de Aplicaciones Móviles |
+| **Maximiliano Ojeda** | Diseño UI Jetpack Compose (Figma), Validaciones Desacopladas, Flujo Jefatura y Cierre Finanzas ERP | Duoc UC — Desarrollo de Aplicaciones Móviles |
 
 ---
 
-## 4. Especificación de Requerimientos
+## 🏢 Descripción del Caso de Negocio: "TeqGastos - TEQMED SPA"
 
-### Requerimientos Funcionales (RF)
+**TEQMED SPA** es una empresa de ingeniería biomédica y soporte técnico en terreno cuyos especialistas realizan mantenciones preventivas y reparaciones de equipamiento clínico en hospitales y centros de salud del sur de Chile.
 
-| Código | Nombre | Descripción |
-| :--- | :--- | :--- |
-| **RF-01** | Autenticación por Rol y Modo Defensa | El sistema autentica usuarios locales (`UsuarioEntity`), incluye botones rápidos (**Demo Técnico**, **Demo Jefatura**, **Demo Finanzas**) y redirige a la vista de su rol. |
-| **RF-02** | Selección de Centro de Costo | El técnico puede alternar su centro de costo activo (`CC-104 · Operaciones Norte`, `CC-MANT-CLINICO-01`, `CC-208`) al registrar gastos. |
-| **RF-03** | Registro de Gastos y Multimoneda | El técnico ingresa RUT proveedor, folio, fecha, moneda (`CLP`, `UF`, `USD`) y categoría con validación en tiempo real de conversión y topes en CLP. |
-| **RF-04** | Bloqueo de Boleta Duplicada | El sistema verifica en Room (`existeBoletaDuplicada`) que la combinación de RUT proveedor, folio y monto original no haya sido rendida previamente. |
-| **RF-05** | Captura de Comprobante y GPS | El registro adjunta respaldo fotográfico (`fotoUri`) con vista previa de boleta y coordenadas geográficas (`-33.4489, -70.6693`). |
-| **RF-06** | Flujo de Evaluación Jefatura | La jefatura visualiza el consolidado de pendientes y puede **Aprobar**, **Observar** o **Rechazar** exigiendo motivo obligatorio en el modal de revisión. |
-| **RF-07** | Desembolso y Exportación ERP Finanzas | Finanzas revisa las rendiciones `APROBADA`, ingresa el **Código de Pago Final**, genera el archivo `teqgastos_erp.csv` y marca las rendiciones como `PAGADA_ERP`. |
+Históricamente, las rendiciones de viáticos (alimentación, alojamiento, peajes, estacionamientos, combustible e insumos de emergencia) se entregaban en planillas físicas al regresar a oficina, provocando:
+- Pérdida o deterioro de boletas térmicas en terreno.
+- Rendiciones fuera de plazo (> 5 días de antigüedad) o con boletas duplicadas.
+- Exceso sobre los topes corporativos autorizados por categoría.
+- Retrasos en la revisión de **Jefatura** y en el desembolso contable de **Finanzas (ERP)**.
 
-### Requerimientos No Funcionales (RNF)
-
-| Código | Categoría | Descripción |
-| :--- | :--- | :--- |
-| **RNF-01** | Arquitectura y Mantenibilidad | Implementación estricta del patrón **MVVM** con separación en capas (`data`, `domain`, `ui`) y validaciones 100% desacopladas de los `@Composable`. |
-| **RNF-02** | Persistencia Offline-First | Almacenamiento 100% local en SQLite mediante **Jetpack Room 2.6.1** procesado con **KSP**, garantizando operación en terreno sin internet. |
-| **RNF-03** | Reactividad y Concurrencia | Uso de **Kotlin Coroutines** y exposición de estado reactivo en UI mediante `Flow` y `StateFlow`. |
-| **RNF-04** | Usabilidad, Diseño Figma y Animaciones | Interfaz construida en **Jetpack Compose (Material 3)** fiel al diseño de Figma, con `AnimatedVisibility` para feedback de errores y confirmaciones. |
-| **RNF-05** | Compatibilidad | Soporte para dispositivos Android con `minSdk = 26` (Android 8.0 Oreo) y `targetSdk = 35` (Android 15) bajo JDK 17. |
+**TeqGastos** resuelve esta problemática mediante una solución móvil **Offline-First** con trazabilidad geográfica (GPS), respaldo fotográfico directo desde cámara y sincronización con la app hermana **TeqRuta**.
 
 ---
 
-## 5. Guía Rápida para Defensa Académica (`AppDatabase.Callback`)
+## ✅ Indicadores de Evaluación e Implementación Técnica (Rúbrica)
 
-Al instalar o iniciar la aplicación por primera vez, `AppDatabase` pre-carga automáticamente los **3 perfiles corporativos** y **4 rendiciones de demostración** alineadas con el prototipo de Figma:
+| Indicador | Descripción en Pauta | Implementación en TeqGastos |
+| :--- | :--- | :--- |
+| **IE 2.1.1 / 2.1.2** | **Arquitectura MVVM y Estado Reactivo (`StateFlow`)** | Separación estricta en capas `data` (`Room` + `Repository`), `domain` (`GastoValidator`) y `ui` (`ViewModels` con `StateFlow` inmutable consumido vía `collectAsStateWithLifecycle()`). Ninguna validación ni consulta de datos reside en los `@Composable`. |
+| **IE 2.2.1** | **Validaciones Desacopladas de Reglas de Negocio** | Objeto puro [`GastoValidator.kt`](app/src/main/java/cl/duoc/teqgastos/domain/validators/GastoValidator.kt) que valida: RUT de proveedor chileno, Folio numérico obligatorio, Antigüedad máxima de **5 días** (bloqueo de fechas futuras o fuera de plazo), Conversor offline multimoneda (`CLP`, `USD = $950`, `UF = $38.000`), Topes máximos por categoría en CLP, Unicidad de boleta (`RUT + Folio`) en Room y Comentario obligatorio de auditoría en Jefatura. |
+| **IE 2.2.2** | **Componentes Visuales Validados y Animaciones Funcionales** | Componente reutilizable [`ValidatedTextField.kt`](app/src/main/java/cl/duoc/teqgastos/ui/components/ValidatedTextField.kt) con `isError`, íconos dinámicos (`Icons.Default.Error` / `Icons.Default.CheckCircle`), transición `AnimatedVisibility` (`fadeIn + expandVertically`), tarjetas expandibles con `animateContentSize()` y transiciones de navegación suaves en [`AppNavGraph.kt`](app/src/main/java/cl/duoc/teqgastos/ui/navigation/AppNavGraph.kt). |
+| **IE 2.3.1** | **Persistencia Local Relacional con Room (`SQLite`)** | Base de datos [`AppDatabase.kt`](app/src/main/java/cl/duoc/teqgastos/data/local/AppDatabase.kt) con 3 entidades ([`UsuarioEntity`](app/src/main/java/cl/duoc/teqgastos/data/local/entities/UsuarioEntity.kt), [`RendicionEntity`](app/src/main/java/cl/duoc/teqgastos/data/local/entities/RendicionEntity.kt), [`GastoEntity`](app/src/main/java/cl/duoc/teqgastos/data/local/entities/GastoEntity.kt)), llave foránea en cascada (`ForeignKey.CASCADE`), `SeedCallback` de datos iniciales y consultas reactivas `Flow<List<...>>` en [`TeqGastosDao.kt`](app/src/main/java/cl/duoc/teqgastos/data/local/dao/TeqGastosDao.kt). |
+| **IE 2.4.1** | **Acceso Seguro a 2 Recursos Nativos (Cámara y GPS)** | 1. **Cámara Nativa**: Configurada con `androidx.core.content.FileProvider` en [`AndroidManifest.xml`](app/src/main/AndroidManifest.xml) y [`file_paths.xml`](app/src/main/res/xml/file_paths.xml), disparada con `ActivityResultContracts.TakePicture()` y renderizada en miniatura con `Coil`.<br>2. **GPS Nativo (`FusedLocationProviderClient`)**: Solicitud en tiempo de ejecución con `RequestMultiplePermissions` (`ACCESS_FINE_LOCATION` / `ACCESS_COARSE_LOCATION`) y fallback seguro a coordenadas de Concepción (`-36.8270, -73.0503`) en [`NativeResourcesHelper.kt`](app/src/main/java/cl/duoc/teqgastos/utils/NativeResourcesHelper.kt). |
 
-### Credenciales de Prueba (Autocompletables desde la Pantalla de Login)
+---
 
-| Botón Rápido | Rol | Nombre | Email | Contraseña |
+## 📏 Reglas de Negocio y Topes Corporativos Evaluados
+
+| Categoría | Tope Máximo (CLP) | Validación Aplicada |
+| :--- | :---: | :--- |
+| **Alimentación** (`ALIMENTACION`) | `$15.000 CLP` | Conversión previa a CLP (`CLP`, `USD` o `UF`) + validación de tope |
+| **Alojamiento** (`ALOJAMIENTO`) | `$65.000 CLP` | Conversión previa a CLP + validación de tope |
+| **Peaje / Estacionamiento** (`PEAJE_ESTACIONAMIENTO`) | `$25.000 CLP` | Conversión previa a CLP + validación de tope |
+| **Combustible** (`COMBUSTIBLE`) | `$60.000 CLP` | Conversión previa a CLP + validación de tope |
+| **Insumos de Emergencia** (`INSUMOS`) | `$50.000 CLP` | Conversión previa a CLP + validación de tope |
+
+---
+
+## 🔑 Credenciales de Prueba por Rol (Defensa en Vivo)
+
+La pantalla de inicio de sesión ([`LoginScreen.kt`](app/src/main/java/cl/duoc/teqgastos/ui/screens/auth/LoginScreen.kt)) incluye el **Selector Rápido de Rol** que autocompleta las credenciales para agilizar la demostración ante el docente:
+
+| Rol | Usuario | Correo Electrónico | Contraseña | Funcionalidades Principales |
 | :--- | :--- | :--- | :--- | :--- |
-| **Demo Técnico** | `TECNICO` | Carlos Muñoz | `tecnico@teqmed.cl` | `123456` |
-| **Demo Jefatura** | `JEFATURA` | Andrea Soto | `jefatura@teqmed.cl` | `123456` |
-| **Demo Finanzas** | `FINANZAS` | Roberto Gómez | `finanzas@teqmed.cl` | `123456` |
+| **TÉCNICO** | Carlos Muñoz | `tecnico@teqmed.cl` | `123456` | Crear carpetas de rendición, **Importar Traslado TeqRuta** (Peaje + Combustible), capturar **Foto de Boleta con Cámara**, capturar **Coordenadas GPS**, validar topes/duplicados y enviar a Jefatura. |
+| **JEFATURA** | Andrea Soto | `jefatura@teqmed.cl` | `123456` | Auditar rendiciones enviadas, **Inspeccionar desglose de gastos** (ver foto de boleta, coordenadas GPS y cumplimiento de topes), **Aprobar**, **Observar** o **Rechazar** con comentario obligatorio validado. |
+| **FINANZAS** | Roberto Gómez | `finanzas@teqmed.cl` | `123456` | Filtrar rendiciones en estado `APROBADA`, registrar el código de transferencia/reembolso y **Exportar a ERP (`.CSV`)** generando un archivo físico en el dispositivo con diálogo e `Intent.ACTION_SEND` para compartirlo. |
 
-### Datos Semilla Pre-cargados para Demostración Inmediata
+> 💡 **Cambio de Rol en Vivo:** Todas las pantallas cuentan con el botón `←` en la barra superior (`TeqAppHeader`) para cerrar sesión instantáneamente y cambiar de rol durante la presentación.
 
-1. **Bandeja Jefatura (`PENDIENTE_JEFATURA`)**:
-   - **Camila Torres** — RUT `17.982.341-2` · Folio `008321` · Categoría `Alimentación` · **\$14.990 CLP**
-   - **Diego Soto** — RUT `16.440.828-6` · Folio `114209` · Categoría `Combustible` · **\$58.700 CLP**
-   - **Martín Rojas** — RUT `18.223.901-4` · Folio `003118` · Categoría `Alojamiento` · **\$65.000 CLP**
-2. **Bandeja Finanzas (`APROBADA`)**:
-   - **Paula Díaz** — RUT `19.118.220-1` · Folio `006742` · Categoría `Peaje / Estac.` · **\$18.500 CLP**
+---
+
+## 📂 Estructura de Paquetes del Proyecto
+
+```text
+app/src/main/java/cl/duoc/teqgastos/
+├── MainActivity.kt                        # Actividad principal que monta AppNavGraph y Room
+├── data/
+│   ├── local/
+│   │   ├── AppDatabase.kt                 # Room Database + SeedCallback con usuarios y rendiciones demo
+│   │   ├── dao/TeqGastosDao.kt            # Consultas Flow, control de duplicados y estados
+│   │   └── entities/                      # UsuarioEntity, RendicionEntity, GastoEntity
+│   └── repository/TeqGastosRepository.kt  # Fuente única de verdad + integración simulada TeqRuta
+├── domain/
+│   └── validators/GastoValidator.kt       # Validaciones puras (RUT, Folio, Plazo 5 días, Topes CLP, Comentario)
+├── ui/
+│   ├── components/
+│   │   ├── TeqFigmaComponents.kt          # Header corporativo, BottomNav, Badges de estado y Botones
+│   │   └── ValidatedTextField.kt          # Input reactivo con ícono Error/CheckCircle y AnimatedVisibility
+│   ├── navigation/
+│   │   └── AppNavGraph.kt                 # Navegación declarativa con transiciones suaves fade/slide
+│   ├── screens/
+│   │   ├── auth/                          # AuthViewModel.kt + LoginScreen.kt
+│   │   ├── tecnico/                       # TecnicoViewModel.kt + TecnicoHomeScreen.kt + FormularioGastoScreen.kt
+│   │   ├── jefatura/                      # JefaturaViewModel.kt + JefaturaScreen.kt (Auditoría de boletas/GPS)
+│   │   └── finanzas/                      # FinanzasViewModel.kt + FinanzasScreen.kt (Cierre y exportación CSV)
+│   └── theme/TeqTheme.kt                  # Tokens de color y tipografía fieles al diseño de Figma
+└── utils/
+    ├── NativeResourcesHelper.kt           # FileProvider URI para Cámara + FusedLocationProviderClient GPS
+    └── CsvExporter.kt                     # Generador de archivo físico .CSV en dispositivo + Intent.ACTION_SEND
+```
+
+---
+
+## 🛠️ Pasos para Compilar y Ejecutar en Android Studio
+
+1. **Clonar el repositorio:**
+   ```bash
+   git clone https://github.com/hoxtxnDev/Proyecto-semestral.git
+   cd Proyecto-semestral
+   ```
+2. **Abrir en Android Studio:**
+   - Seleccionar **File → Open** y elegir la carpeta raíz del proyecto.
+   - Esperar a que finalice la sincronización de **Gradle (AGP 8.7.3 / Kotlin 2.0.21 / KSP)**.
+3. **Configurar Dispositivo o Emulador:**
+   - Usar un dispositivo físico o un emulador con **API 26 (Android 8.0)** o superior (recomendado API 34/35 con cámara emulada configurada en *Virtual Scene* o *Webcam0*).
+4. **Compilar desde Terminal (opcional):**
+   ```bash
+   ./gradlew assembleDebug
+   ```
+5. **Ejecutar la aplicación:**
+   - Presionar **Run (`Shift + F10` / `Ctrl + R`)** en Android Studio.
