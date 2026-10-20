@@ -12,18 +12,23 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.PhoneAndroid
+import androidx.compose.material.icons.filled.PhoneIphone
 import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
@@ -110,8 +115,8 @@ fun TeqBrand(
 
 /**
  * Cabecera superior `AppHeader` extraída de Figma (`src-interface/App.tsx`).
- * Incluye fondo `#1B2A4A` con borde inferior curvo (`34.dp`), órbita decorativa,
- * botón de avatar para cerrar sesión y barra de búsqueda integrada.
+ * Adaptable a Android (Material 3) e iOS (Safe Area + Cupertino HIG), con selector rápido de plataforma,
+ * botón explícito para cerrar sesión / cambiar de rol y barra de búsqueda integrada.
  */
 @Composable
 fun TeqAppHeader(
@@ -125,12 +130,17 @@ fun TeqAppHeader(
     onFilterClick: (() -> Unit)? = null,
     onBack: () -> Unit
 ) {
+    val platformMode = TeqAdaptivePlatformState.mode
+    val isIos = platformMode == TeqPlatformMode.IOS_CUPERTINO
+    val bottomRadius = if (isIos) 38.dp else 34.dp
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(bottomStart = 34.dp, bottomEnd = 34.dp))
+            .clip(RoundedCornerShape(bottomStart = bottomRadius, bottomEnd = bottomRadius))
             .background(TeqNavy)
-            .padding(horizontal = 22.dp, vertical = 24.dp)
+            .statusBarsPadding()
+            .padding(horizontal = 22.dp, vertical = 20.dp)
     ) {
         // Órbitas decorativas sutiles (Figma .app-header::before)
         Box(
@@ -149,7 +159,7 @@ fun TeqAppHeader(
         )
 
         Column(modifier = Modifier.fillMaxWidth()) {
-            // Fila superior: Brand + Avatar (Cerrar Sesión)
+            // Fila superior: Brand + Selector Android/iOS + Botón Cerrar Sesión (Cambio de Rol)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -157,25 +167,74 @@ fun TeqAppHeader(
             ) {
                 TeqBrand(inverted = true)
 
-                Surface(
-                    onClick = onBack,
-                    shape = RoundedCornerShape(11.dp),
-                    color = TeqAvatarBg,
-                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.22f)),
-                    modifier = Modifier.size(36.dp)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Text(
-                            text = userInitials,
-                            color = TeqNavy,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.ExtraBold
-                        )
+                    // Chip rápido para alternar modo adaptable Android M3 / iOS HIG en vivo
+                    Surface(
+                        onClick = {
+                            TeqAdaptivePlatformState.mode = if (isIos) {
+                                TeqPlatformMode.ANDROID_MATERIAL
+                            } else {
+                                TeqPlatformMode.IOS_CUPERTINO
+                            }
+                        },
+                        shape = CircleShape,
+                        color = Color.White.copy(alpha = 0.10f),
+                        border = BorderStroke(1.dp, TeqTeal.copy(alpha = 0.35f))
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = if (isIos) Icons.Default.PhoneIphone else Icons.Default.PhoneAndroid,
+                                contentDescription = "Modo Plataforma",
+                                tint = TeqTeal,
+                                modifier = Modifier.size(13.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = if (isIos) "iOS" else "Android",
+                                color = Color.White,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                        }
+                    }
+
+                    // Botón de Avatar + Cerrar sesión para cambiar de rol durante la defensa
+                    Surface(
+                        onClick = onBack,
+                        shape = RoundedCornerShape(11.dp),
+                        color = TeqAvatarBg,
+                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.22f)),
+                        modifier = Modifier.height(36.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = userInitials,
+                                color = TeqNavy,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                            Spacer(modifier = Modifier.width(5.dp))
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.Logout,
+                                contentDescription = "Cerrar sesión / Cambiar rol",
+                                tint = TeqNavy,
+                                modifier = Modifier.size(14.dp)
+                            )
+                        }
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
             // Eyebrow
             Text(
@@ -207,16 +266,20 @@ fun TeqAppHeader(
                 )
             }
 
-            Spacer(modifier = Modifier.height(18.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
             // Barra de búsqueda integrada (.search-box)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(45.dp)
-                    .clip(RoundedCornerShape(13.dp))
+                    .clip(RoundedCornerShape(if (isIos) 16.dp else 13.dp))
                     .background(Color.White.copy(alpha = 0.09f))
-                    .border(1.dp, Color.White.copy(alpha = 0.10f), RoundedCornerShape(13.dp))
+                    .border(
+                        1.dp,
+                        Color.White.copy(alpha = 0.10f),
+                        RoundedCornerShape(if (isIos) 16.dp else 13.dp)
+                    )
                     .padding(start = 14.dp, end = 7.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -279,13 +342,14 @@ fun TeqPrimaryButton(
     isLoading: Boolean = false,
     trailingIcon: ImageVector = Icons.AutoMirrored.Filled.ArrowForward
 ) {
+    val isIos = TeqAdaptivePlatformState.mode == TeqPlatformMode.IOS_CUPERTINO
     Button(
         onClick = onClick,
         enabled = enabled && !isLoading,
         modifier = modifier
             .fillMaxWidth()
             .height(53.dp),
-        shape = RoundedCornerShape(15.dp),
+        shape = RoundedCornerShape(if (isIos) 18.dp else 15.dp),
         colors = ButtonDefaults.buttonColors(
             containerColor = TeqTeal,
             contentColor = TeqTealTextDark,
@@ -333,7 +397,8 @@ fun TeqPrimaryButton(
 }
 
 /**
- * Barra de navegación inferior `BottomNav` de 4 secciones extraída de Figma (`src-interface/App.tsx`).
+ * Barra de navegación inferior `BottomNav` de 4 secciones extraída de Figma (`src-interface/App.tsx`),
+ * adaptable tanto a Android Material 3 como a iOS Cupertino Tab Bar (con Home Indicator).
  */
 @Composable
 fun TeqBottomNav(
@@ -341,6 +406,7 @@ fun TeqBottomNav(
     onTabSelected: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val isIos = TeqAdaptivePlatformState.mode == TeqPlatformMode.IOS_CUPERTINO
     val items = listOf(
         "Inicio" to Icons.Default.Home,
         "Rendiciones" to Icons.Default.ReceiptLong,
@@ -350,44 +416,64 @@ fun TeqBottomNav(
 
     Surface(
         modifier = modifier.fillMaxWidth(),
-        color = Color.White.copy(alpha = 0.96f),
-        shadowElevation = 10.dp,
+        color = Color.White.copy(alpha = if (isIos) 0.94f else 0.98f),
+        shadowElevation = if (isIos) 16.dp else 10.dp,
+        shape = if (isIos) RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp) else RoundedCornerShape(0.dp),
         border = BorderStroke(1.dp, TeqBorder)
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(70.dp)
-                .padding(horizontal = 12.dp, vertical = 7.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .navigationBarsPadding(),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            items.forEach { (label, icon) ->
-                val isSelected = activeTab.equals(label, ignoreCase = true)
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(54.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(if (isSelected) TeqTealSoft else Color.Transparent)
-                        .clickable { onTabSelected(label) },
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = label,
-                        tint = if (isSelected) TeqTealDark else TeqMutedText,
-                        modifier = Modifier.size(21.dp)
-                    )
-                    Spacer(modifier = Modifier.height(3.dp))
-                    Text(
-                        text = label,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = if (isSelected) TeqTealDark else TeqMutedText
-                    )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(68.dp)
+                    .padding(horizontal = 12.dp, vertical = 7.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                items.forEach { (label, icon) ->
+                    val isSelected = activeTab.equals(label, ignoreCase = true)
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(54.dp)
+                            .clip(RoundedCornerShape(if (isIos) 16.dp else 12.dp))
+                            .background(if (isSelected) TeqTealSoft else Color.Transparent)
+                            .clickable { onTabSelected(label) },
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = label,
+                            tint = if (isSelected) TeqTealDark else TeqMutedText,
+                            modifier = Modifier.size(21.dp)
+                        )
+                        Spacer(modifier = Modifier.height(3.dp))
+                        Text(
+                            text = label,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (isSelected) TeqTealDark else TeqMutedText
+                        )
+                    }
                 }
+            }
+
+            // En modo iOS Cupertino HIG, se muestra el Home Indicator característico en la base
+            if (isIos) {
+                Box(
+                    modifier = Modifier
+                        .padding(bottom = 6.dp)
+                        .width(124.dp)
+                        .height(4.dp)
+                        .clip(CircleShape)
+                        .background(TeqNavy.copy(alpha = 0.22f))
+                )
             }
         }
     }

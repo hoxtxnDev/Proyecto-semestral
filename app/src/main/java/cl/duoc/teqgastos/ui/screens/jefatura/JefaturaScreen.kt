@@ -74,9 +74,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cl.duoc.teqgastos.data.local.entities.GastoEntity
 import cl.duoc.teqgastos.data.local.entities.RendicionEntity
 import cl.duoc.teqgastos.domain.validators.GastoValidator
+import cl.duoc.teqgastos.ui.components.TeqAjustesSection
 import cl.duoc.teqgastos.ui.components.TeqAppHeader
 import cl.duoc.teqgastos.ui.components.TeqBottomNav
+import cl.duoc.teqgastos.ui.components.TeqReportesSection
 import cl.duoc.teqgastos.ui.components.ValidatedTextField
+import cl.duoc.teqgastos.ui.components.construirResumenCategorias
 import cl.duoc.teqgastos.ui.theme.TeqApproveBg
 import cl.duoc.teqgastos.ui.theme.TeqApproveText
 import cl.duoc.teqgastos.ui.theme.TeqBackground
@@ -131,6 +134,12 @@ fun JefaturaScreen(
     }
 
     val montoTotalPendientes = pendientes.sumOf { it.montoTotalClp }
+    val todosLosGastosJefatura = remember(todasLasItems) {
+        todasLasItems.flatMap { item -> item.gastosAuditados.map { it.gasto } }
+    }
+    val resumenCategorias = remember(todosLosGastosJefatura) {
+        construirResumenCategorias(todosLosGastosJefatura)
+    }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -150,8 +159,16 @@ fun JefaturaScreen(
         ) {
             TeqAppHeader(
                 eyebrow = "JEFATURA",
-                title = "Por evaluar",
-                subtitle = "Revisa los gastos, fotos, GPS y cumplimiento de topes.",
+                title = when (uiState.tabActiva) {
+                    "Reportes" -> "Analítica y Topes"
+                    "Ajustes" -> "Ajustes y Plataforma"
+                    else -> "Por evaluar"
+                },
+                subtitle = when (uiState.tabActiva) {
+                    "Reportes" -> "Trazabilidad completa de aprobaciones, observaciones y topes."
+                    "Ajustes" -> "Adaptabilidad Android/iOS, reglas corporativas y sesión."
+                    else -> "Revisa los gastos, fotos, GPS y cumplimiento de topes."
+                },
                 userInitials = "AS",
                 searchQuery = uiState.searchQuery,
                 onSearchChange = viewModel::onSearchQueryChange,
@@ -164,6 +181,27 @@ fun JefaturaScreen(
                     .fillMaxWidth()
                     .padding(horizontal = 17.dp, vertical = 17.dp)
             ) {
+                if (uiState.tabActiva == "Reportes") {
+                    TeqReportesSection(
+                        rolActual = "JEFATURA",
+                        totalMontoClp = todasLasItems.sumOf { it.montoTotalClp },
+                        totalRendiciones = todasLasItems.size,
+                        conteoBorrador = todasLasItems.count { it.estado == RendicionEntity.ESTADO_BORRADOR },
+                        conteoPendientes = todasLasItems.count { it.estado == RendicionEntity.ESTADO_PENDIENTE_JEFATURA },
+                        conteoObservadas = todasLasItems.count { it.estado == RendicionEntity.ESTADO_OBSERVADA },
+                        conteoAprobadas = todasLasItems.count { it.estado == RendicionEntity.ESTADO_APROBADA },
+                        conteoPagadasErp = todasLasItems.count { it.estado == RendicionEntity.ESTADO_PAGADA_ERP },
+                        conteoRechazadas = todasLasItems.count { it.estado == RendicionEntity.ESTADO_RECHAZADA },
+                        resumenCategorias = resumenCategorias
+                    )
+                } else if (uiState.tabActiva == "Ajustes") {
+                    TeqAjustesSection(
+                        nombreUsuario = "Andrea Soto",
+                        rolUsuario = "JEFATURA",
+                        correoUsuario = "jefatura@teqmed.cl",
+                        onLogout = onLogout
+                    )
+                } else {
                 // Banner animado de confirmación de decisión
                 AnimatedVisibility(
                     visible = uiState.mensajeFeedback != null,
@@ -442,6 +480,7 @@ fun JefaturaScreen(
                             )
                         }
                     }
+                }
                 }
             }
         }

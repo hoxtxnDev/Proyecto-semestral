@@ -67,10 +67,13 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cl.duoc.teqgastos.data.local.entities.GastoEntity
 import cl.duoc.teqgastos.data.local.entities.RendicionEntity
 import cl.duoc.teqgastos.domain.validators.GastoValidator
+import cl.duoc.teqgastos.ui.components.TeqAjustesSection
 import cl.duoc.teqgastos.ui.components.TeqAppHeader
 import cl.duoc.teqgastos.ui.components.TeqBottomNav
 import cl.duoc.teqgastos.ui.components.TeqPrimaryButton
+import cl.duoc.teqgastos.ui.components.TeqReportesSection
 import cl.duoc.teqgastos.ui.components.ValidatedTextField
+import cl.duoc.teqgastos.ui.components.construirResumenCategorias
 import cl.duoc.teqgastos.ui.screens.jefatura.obtenerIconoYNombreCategoria
 import cl.duoc.teqgastos.ui.theme.TeqApproveBg
 import cl.duoc.teqgastos.ui.theme.TeqApproveText
@@ -126,12 +129,19 @@ fun TecnicoHomeScreen(
             rendicion.medioPago.contains(uiState.searchQuery, ignoreCase = true)
     }
 
+    val todosLosGastosTecnico = remember(gastosPorRendicion) {
+        gastosPorRendicion.values.flatten()
+    }
+    val resumenCategorias = remember(todosLosGastosTecnico) {
+        construirResumenCategorias(todosLosGastosTecnico)
+    }
+
     Scaffold(
         modifier = modifier.fillMaxSize(),
         containerColor = TeqBackground,
         bottomBar = {
             TeqBottomNav(
-                activeTab = "Inicio",
+                activeTab = uiState.tabActiva,
                 onTabSelected = { tab ->
                     if (tab == "Rendiciones") {
                         onNavigateToFormularioGasto(uiState.rendicionSeleccionadaId)
@@ -150,8 +160,16 @@ fun TecnicoHomeScreen(
         ) {
             TeqAppHeader(
                 eyebrow = "TÉCNICO EN TERRENO",
-                title = "Mis Rendiciones",
-                subtitle = "Gestiona carpetas, traslados TeqRuta y boletas con GPS.",
+                title = when (uiState.tabActiva) {
+                    "Reportes" -> "Seguimiento y Topes"
+                    "Ajustes" -> "Ajustes y Plataforma"
+                    else -> "Mis Rendiciones"
+                },
+                subtitle = when (uiState.tabActiva) {
+                    "Reportes" -> "Métricas de tus carpetas, trazabilidad y topes por categoría."
+                    "Ajustes" -> "Adaptabilidad Android/iOS, permisos nativos y sesión."
+                    else -> "Gestiona carpetas, traslados TeqRuta y boletas con GPS."
+                },
                 userInitials = "CM",
                 searchQuery = uiState.searchQuery,
                 onSearchChange = viewModel::onSearchQueryChange,
@@ -163,200 +181,228 @@ fun TecnicoHomeScreen(
                     .fillMaxWidth()
                     .padding(horizontal = 17.dp, vertical = 17.dp)
             ) {
-                // =============================================================
-                // 1. BANNER DE FEEDBACK REACTIVO (ÉXITO / IMPORTACIÓN TEQRUTA)
-                // =============================================================
-                AnimatedVisibility(
-                    visible = uiState.mensajeExito != null,
-                    enter = fadeIn() + expandVertically(),
-                    exit = fadeOut() + shrinkVertically()
-                ) {
-                    Surface(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 13.dp),
-                        color = TeqApproveBg,
-                        shape = RoundedCornerShape(14.dp),
-                        border = BorderStroke(1.dp, TeqApproveText.copy(alpha = 0.25f))
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(13.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.CheckCircle,
-                                contentDescription = null,
-                                tint = TeqApproveText,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Text(
-                                text = uiState.mensajeExito.orEmpty(),
-                                color = TeqApproveText,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
+                when (uiState.tabActiva) {
+                    "Reportes" -> {
+                        TeqReportesSection(
+                            rolActual = "TÉCNICO",
+                            totalMontoClp = rendiciones.sumOf { it.montoTotalClp },
+                            totalRendiciones = rendiciones.size,
+                            conteoBorrador = rendiciones.count { it.estado == RendicionEntity.ESTADO_BORRADOR },
+                            conteoPendientes = rendiciones.count { it.estado == RendicionEntity.ESTADO_PENDIENTE_JEFATURA },
+                            conteoObservadas = rendiciones.count { it.estado == RendicionEntity.ESTADO_OBSERVADA },
+                            conteoAprobadas = rendiciones.count { it.estado == RendicionEntity.ESTADO_APROBADA },
+                            conteoPagadasErp = rendiciones.count { it.estado == RendicionEntity.ESTADO_PAGADA_ERP },
+                            conteoRechazadas = rendiciones.count { it.estado == RendicionEntity.ESTADO_RECHAZADA },
+                            resumenCategorias = resumenCategorias
+                        )
                     }
-                }
 
-                // =============================================================
-                // 2. ACCIONES PRINCIPALES: NUEVA RENDICIÓN + IMPORTAR TEQRUTA
-                // =============================================================
-                TeqPrimaryButton(
-                    text = "Crear Nueva Rendición",
-                    onClick = viewModel::abrirDialogoNuevaRendicion,
-                    trailingIcon = Icons.Default.Add
-                )
+                    "Ajustes" -> {
+                        TeqAjustesSection(
+                            nombreUsuario = "Carlos Muñoz",
+                            rolUsuario = "TÉCNICO",
+                            correoUsuario = "tecnico@teqmed.cl",
+                            onLogout = onLogout
+                        )
+                    }
 
-                Spacer(modifier = Modifier.height(11.dp))
-
-                // Tarjeta/Botón "Importar Traslado TeqRuta"
-                Surface(
-                    onClick = {
-                        viewModel.importarTrasladoTeqRuta(rendicionExpandidaId)
-                    },
-                    shape = RoundedCornerShape(16.dp),
-                    color = TeqNavy,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 14.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.weight(1f)
+                    else -> {
+                        // =============================================================
+                        // 1. BANNER DE FEEDBACK REACTIVO (ÉXITO / IMPORTACIÓN TEQRUTA)
+                        // =============================================================
+                        AnimatedVisibility(
+                            visible = uiState.mensajeExito != null,
+                            enter = fadeIn() + expandVertically(),
+                            exit = fadeOut() + shrinkVertically()
                         ) {
-                            Box(
+                            Surface(
                                 modifier = Modifier
-                                    .size(40.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(TeqTeal.copy(alpha = 0.16f)),
-                                contentAlignment = Alignment.Center
+                                    .fillMaxWidth()
+                                    .padding(bottom = 13.dp),
+                                color = TeqApproveBg,
+                                shape = RoundedCornerShape(14.dp),
+                                border = BorderStroke(1.dp, TeqApproveText.copy(alpha = 0.25f))
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.Route,
-                                    contentDescription = "TeqRuta",
-                                    tint = TeqTeal,
-                                    modifier = Modifier.size(22.dp)
-                                )
-                            }
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Column {
-                                Text(
-                                    text = "Importar Traslado TeqRuta",
-                                    color = Color.White,
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.ExtraBold
-                                )
-                                Text(
-                                    text = "Inyecta Peaje ($4.800) + Combustible ($22.500) pre-calculados",
-                                    color = Color.White.copy(alpha = 0.65f),
-                                    fontSize = 10.sp
-                                )
+                                Row(
+                                    modifier = Modifier.padding(13.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.CheckCircle,
+                                        contentDescription = null,
+                                        tint = TeqApproveText,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Text(
+                                        text = uiState.mensajeExito.orEmpty(),
+                                        color = TeqApproveText,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
                             }
                         }
 
+                        // =============================================================
+                        // 2. ACCIONES PRINCIPALES: NUEVA RENDICIÓN + IMPORTAR TEQRUTA
+                        // =============================================================
+                        TeqPrimaryButton(
+                            text = "Crear Nueva Rendición",
+                            onClick = viewModel::abrirDialogoNuevaRendicion,
+                            trailingIcon = Icons.Default.Add
+                        )
+
+                        Spacer(modifier = Modifier.height(11.dp))
+
+                        // Tarjeta/Botón "Importar Traslado TeqRuta"
                         Surface(
-                            shape = RoundedCornerShape(9.dp),
-                            color = TeqTeal
+                            onClick = {
+                                viewModel.importarTrasladoTeqRuta(rendicionExpandidaId)
+                            },
+                            shape = RoundedCornerShape(16.dp),
+                            color = TeqNavy,
+                            modifier = Modifier.fillMaxWidth()
                         ) {
                             Row(
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
-                                verticalAlignment = Alignment.CenterVertically
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.DirectionsCar,
-                                    contentDescription = null,
-                                    tint = TeqNavy,
-                                    modifier = Modifier.size(14.dp)
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(40.dp)
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .background(TeqTeal.copy(alpha = 0.16f)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Route,
+                                            contentDescription = "TeqRuta",
+                                            tint = TeqTeal,
+                                            modifier = Modifier.size(22.dp)
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Column {
+                                        Text(
+                                            text = "Importar Traslado TeqRuta",
+                                            color = Color.White,
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.ExtraBold
+                                        )
+                                        Text(
+                                            text = "Inyecta Peaje ($4.800) + Combustible ($22.500) pre-calculados",
+                                            color = Color.White.copy(alpha = 0.65f),
+                                            fontSize = 10.sp
+                                        )
+                                    }
+                                }
+
+                                Surface(
+                                    shape = RoundedCornerShape(9.dp),
+                                    color = TeqTeal
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.DirectionsCar,
+                                            contentDescription = null,
+                                            tint = TeqNavy,
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(
+                                            text = "Importar",
+                                            color = TeqNavy,
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.ExtraBold
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(22.dp))
+
+                        // =============================================================
+                        // 3. ENCABEZADO Y LISTA DE TARJETAS CON animateContentSize
+                        // =============================================================
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.Bottom
+                        ) {
+                            Column {
                                 Text(
-                                    text = "Importar",
+                                    text = "CARPETAS DE RENDICIÓN",
+                                    color = TeqMutedText,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    letterSpacing = 1.4.sp
+                                )
+                                Text(
+                                    text = "Mis rendiciones (${rendicionesFiltradas.size})",
                                     color = TeqNavy,
-                                    fontSize = 10.sp,
+                                    fontSize = 18.sp,
                                     fontWeight = FontWeight.ExtraBold
                                 )
                             }
-                        }
-                    }
-                }
 
-                Spacer(modifier = Modifier.height(22.dp))
-
-                // =============================================================
-                // 3. ENCABEZADO Y LISTA DE TARJETAS CON animateContentSize
-                // =============================================================
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.Bottom
-                ) {
-                    Column {
-                        Text(
-                            text = "CARPETAS DE RENDICIÓN",
-                            color = TeqMutedText,
-                            fontSize = 9.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            letterSpacing = 1.4.sp
-                        )
-                        Text(
-                            text = "Mis rendiciones (${rendicionesFiltradas.size})",
-                            color = TeqNavy,
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.ExtraBold
-                        )
-                    }
-
-                    Surface(
-                        onClick = { onNavigateToFormularioGasto(rendicionExpandidaId) },
-                        shape = RoundedCornerShape(9.dp),
-                        color = TeqTealSoft,
-                        border = BorderStroke(1.dp, TeqTeal)
-                    ) {
-                        Text(
-                            text = "+ Registrar Boleta",
-                            color = TeqTealDark,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Column(verticalArrangement = Arrangement.spacedBy(11.dp)) {
-                    rendicionesFiltradas.forEach { rendicion ->
-                        val gastosAsociados = gastosPorRendicion[rendicion.id].orEmpty()
-                        val expandida = rendicionExpandidaId == rendicion.id
-
-                        RendicionAnimatedCard(
-                            rendicion = rendicion,
-                            gastos = gastosAsociados,
-                            expandida = expandida,
-                            onToggleExpand = {
-                                rendicionExpandidaId = if (expandida) null else rendicion.id
-                            },
-                            onAgregarGasto = {
-                                onNavigateToFormularioGasto(rendicion.id)
-                            },
-                            onImportarTeqRutaAqui = {
-                                rendicionExpandidaId = rendicion.id
-                                viewModel.importarTrasladoTeqRuta(rendicion.id)
-                            },
-                            onEnviarAJefatura = {
-                                viewModel.enviarRendicionAJefatura(rendicion.id)
-                            },
-                            onEliminarGasto = { gastoId ->
-                                viewModel.eliminarGastoDeRendicion(gastoId, rendicion.id)
+                            Surface(
+                                onClick = { onNavigateToFormularioGasto(rendicionExpandidaId) },
+                                shape = RoundedCornerShape(9.dp),
+                                color = TeqTealSoft,
+                                border = BorderStroke(1.dp, TeqTeal)
+                            ) {
+                                Text(
+                                    text = "+ Registrar Boleta",
+                                    color = TeqTealDark,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                                )
                             }
-                        )
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Column(verticalArrangement = Arrangement.spacedBy(11.dp)) {
+                            rendicionesFiltradas.forEach { rendicion ->
+                                val gastosAsociados = gastosPorRendicion[rendicion.id].orEmpty()
+                                val expandida = rendicionExpandidaId == rendicion.id
+
+                                RendicionAnimatedCard(
+                                    rendicion = rendicion,
+                                    gastos = gastosAsociados,
+                                    expandida = expandida,
+                                    onToggleExpand = {
+                                        rendicionExpandidaId = if (expandida) null else rendicion.id
+                                    },
+                                    onAgregarGasto = {
+                                        onNavigateToFormularioGasto(rendicion.id)
+                                    },
+                                    onImportarTeqRutaAqui = {
+                                        rendicionExpandidaId = rendicion.id
+                                        viewModel.importarTrasladoTeqRuta(rendicion.id)
+                                    },
+                                    onEnviarAJefatura = {
+                                        viewModel.enviarRendicionAJefatura(rendicion.id)
+                                    },
+                                    onEliminarGasto = { gastoId ->
+                                        viewModel.eliminarGastoDeRendicion(gastoId, rendicion.id)
+                                    }
+                                )
+                            }
+                        }
                     }
                 }
             }

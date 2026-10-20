@@ -13,6 +13,17 @@ Aplicación móvil nativa para **Android (100% Kotlin + Jetpack Compose + Materi
 
 ---
 
+## 📚 Documentación de Ingeniería en Carpeta [`docs/`](docs/)
+
+Toda la fundamentación arquitectónica, patrones de diseño, requerimientos y guía de pruebas se encuentra documentada en la carpeta [`docs/`](docs/):
+
+1. 🏛️ [**`docs/01_ARQUITECTURA_Y_PATRONES.md`**](docs/01_ARQUITECTURA_Y_PATRONES.md) — Patrones de diseño elegidos (**MVVM, UDF + StateFlow, Repository, Pure Domain Validator, Singleton Room, Factory**), diagrama de capas y por qué el MVP funciona de forma robusta Offline-First.
+2. 📋 [**`docs/02_REQUERIMIENTOS_RF_RNF.md`**](docs/02_REQUERIMIENTOS_RF_RNF.md) — Especificación completa de **Requerimientos Funcionales (`RF-01` a `RF-12`)** y **Requerimientos No Funcionales (`RNF-01` a `RNF-08`)**.
+3. 🔄 [**`docs/03_FLUJO_MVP_Y_TRAZABILIDAD_IEE.md`**](docs/03_FLUJO_MVP_Y_TRAZABILIDAD_IEE.md) — Máquina de estados de la rendición, secuencia End-to-End entre los 3 roles y matriz de cumplimiento de **Indicadores de Evaluación (`IE 2.1.1` a `IE 2.4.1`)**.
+4. 📱🍏 [**`docs/04_ADAPTABILIDAD_ANDROID_IOS_Y_GUIA_TESTING.md`**](docs/04_ADAPTABILIDAD_ANDROID_IOS_Y_GUIA_TESTING.md) — Adaptabilidad en vivo **Android (Material Design 3) / iOS (Cupertino HIG)**, paleta de colores corporativa y **Guía Paso a Paso de Testing en Android Studio**.
+
+---
+
 ## 🏢 Descripción del Caso de Negocio: "TeqGastos - TEQMED SPA"
 
 **TEQMED SPA** es una empresa de ingeniería biomédica y soporte técnico en terreno cuyos especialistas realizan mantenciones preventivas y reparaciones de equipamiento clínico en hospitales y centros de salud del sur de Chile.

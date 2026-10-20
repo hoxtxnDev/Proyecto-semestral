@@ -52,11 +52,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import cl.duoc.teqgastos.data.local.entities.GastoEntity
 import cl.duoc.teqgastos.data.local.entities.RendicionEntity
 import cl.duoc.teqgastos.domain.validators.GastoValidator
+import cl.duoc.teqgastos.ui.components.ResumenCategoriaReporte
+import cl.duoc.teqgastos.ui.components.TeqAjustesSection
 import cl.duoc.teqgastos.ui.components.TeqAppHeader
 import cl.duoc.teqgastos.ui.components.TeqBottomNav
 import cl.duoc.teqgastos.ui.components.TeqPrimaryButton
+import cl.duoc.teqgastos.ui.components.TeqReportesSection
 import cl.duoc.teqgastos.ui.components.ValidatedTextField
 import cl.duoc.teqgastos.ui.screens.jefatura.obtenerIconoYNombreCategoria
 import cl.duoc.teqgastos.ui.theme.TeqApproveBg
@@ -116,8 +120,16 @@ fun FinanzasScreen(
         ) {
             TeqAppHeader(
                 eyebrow = "FINANZAS",
-                title = "Reembolsos",
-                subtitle = "Prepara los gastos aprobados para pago.",
+                title = when (uiState.tabActiva) {
+                    "Reportes" -> "Consolidado Contable"
+                    "Ajustes" -> "Ajustes y Plataforma"
+                    else -> "Reembolsos"
+                },
+                subtitle = when (uiState.tabActiva) {
+                    "Reportes" -> "Resumen financiero de desembolsos, topes y estado ERP."
+                    "Ajustes" -> "Adaptabilidad Android/iOS, parámetros de cambio y sesión."
+                    else -> "Prepara los gastos aprobados para pago."
+                },
                 userInitials = "RG",
                 searchQuery = uiState.searchQuery,
                 onSearchChange = viewModel::onSearchQueryChange,
@@ -130,6 +142,43 @@ fun FinanzasScreen(
                     .fillMaxWidth()
                     .padding(horizontal = 17.dp, vertical = 17.dp)
             ) {
+                if (uiState.tabActiva == "Reportes") {
+                    val categoriasOficiales = listOf(
+                        GastoEntity.CAT_ALIMENTACION,
+                        GastoEntity.CAT_ALOJAMIENTO,
+                        GastoEntity.CAT_PEAJE_ESTACIONAMIENTO,
+                        GastoEntity.CAT_COMBUSTIBLE,
+                        GastoEntity.CAT_INSUMOS
+                    )
+                    val resumenFinanzas = categoriasOficiales.map { cat ->
+                        val itemsCat = todosLosItems.filter { it.categoria.equals(cat, ignoreCase = true) }
+                        ResumenCategoriaReporte(
+                            categoria = cat,
+                            montoAcumuladoClp = itemsCat.sumOf { it.montoTotalClp },
+                            cantidadBoletas = itemsCat.size,
+                            topeUnitarioClp = GastoValidator.obtenerTopeCategoriaClp(cat) ?: 0.0
+                        )
+                    }
+                    TeqReportesSection(
+                        rolActual = "FINANZAS",
+                        totalMontoClp = todosLosItems.sumOf { it.montoTotalClp },
+                        totalRendiciones = todosLosItems.size,
+                        conteoBorrador = 0,
+                        conteoPendientes = 0,
+                        conteoObservadas = 0,
+                        conteoAprobadas = todosLosItems.count { it.estado == RendicionEntity.ESTADO_APROBADA },
+                        conteoPagadasErp = todosLosItems.count { it.estado == RendicionEntity.ESTADO_PAGADA_ERP },
+                        conteoRechazadas = 0,
+                        resumenCategorias = resumenFinanzas
+                    )
+                } else if (uiState.tabActiva == "Ajustes") {
+                    TeqAjustesSection(
+                        nombreUsuario = "Roberto Gómez",
+                        rolUsuario = "FINANZAS",
+                        correoUsuario = "finanzas@teqmed.cl",
+                        onLogout = onLogout
+                    )
+                } else {
                 // =============================================================
                 // 1. TARJETA CONSOLIDADO DESEMBOLSO (.finance-total)
                 // =============================================================
@@ -557,6 +606,7 @@ fun FinanzasScreen(
                             }
                         }
                     }
+                }
                 }
             }
         }
