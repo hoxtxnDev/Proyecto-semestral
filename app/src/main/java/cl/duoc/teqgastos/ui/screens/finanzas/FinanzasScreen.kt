@@ -77,9 +77,7 @@ import cl.duoc.teqgastos.ui.theme.TeqTealIconBg
 import cl.duoc.teqgastos.utils.CsvExporter
 
 /**
- * Pantalla de Finanzas (`FinanceScreen` de Figma `src-interface/App.tsx`).
- * Filtra las rendiciones en estado `APROBADA`, permite registrar el código de transferencia/reembolso
- * y genera el archivo `.CSV` real en el dispositivo mediante `CsvExporter` con diálogo e Intent para compartirlo.
+ * Pantalla del área de Finanzas para gestión de reembolsos y generación de archivos CSV para el ERP.
  */
 @Composable
 fun FinanzasScreen(

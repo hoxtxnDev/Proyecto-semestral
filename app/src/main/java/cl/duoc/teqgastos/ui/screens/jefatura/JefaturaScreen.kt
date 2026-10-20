@@ -104,15 +104,7 @@ import cl.duoc.teqgastos.ui.theme.TeqTealMid
 import cl.duoc.teqgastos.utils.NativeResourcesHelper
 
 /**
- * Pantalla de Jefatura (`ManagerScreen` de Figma - Fase 7).
- *
- * Cumple con:
- * - Listar todas las rendiciones enviadas por el equipo técnico.
- * - Inspeccionar el desglose completo de gastos (`animateContentSize` + visor de boleta) mostrando
- *   la fotografía de la boleta, coordenadas GPS y validación de si cumple los topes por categoría.
- * - Botones de decisión "Aprobar", "Observar" y "Rechazar".
- * - Modal de Observación/Rechazo con campo obligatorio validado mediante `ValidatedTextField`
- *   (con ícono de error en rojo y `AnimatedVisibility`) antes de guardar en Room.
+ * Pantalla de evaluación de Jefatura para aprobar, observar o rechazar rendiciones.
  */
 @Composable
 fun JefaturaScreen(
@@ -455,7 +447,7 @@ fun JefaturaScreen(
                     Column(verticalArrangement = Arrangement.spacedBy(11.dp)) {
                         listaFiltrada.forEach { item ->
                             val expandida = uiState.rendicionExpandidaId == item.rendicionId
-                            ExpenseReviewCardFigma(
+                            ExpenseReviewCard(
                                 item = item,
                                 expandida = expandida,
                                 onToggleExpand = {
@@ -620,7 +612,7 @@ fun JefaturaScreen(
 }
 
 @Composable
-private fun ExpenseReviewCardFigma(
+private fun ExpenseReviewCard(
     item: ItemEvaluacionJefatura,
     expandida: Boolean,
     onToggleExpand: () -> Unit,

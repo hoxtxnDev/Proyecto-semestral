@@ -63,7 +63,7 @@ import cl.duoc.teqgastos.ui.theme.TeqTealSoft
 import cl.duoc.teqgastos.ui.theme.TeqTealTextDark
 
 /**
- * Logotipo corporativo `Brand` fiel al diseño Figma (`src-interface/App.tsx`).
+ * Logotipo corporativo de TeqGastos.
  */
 @Composable
 fun TeqBrand(
@@ -114,9 +114,7 @@ fun TeqBrand(
 }
 
 /**
- * Cabecera superior `AppHeader` extraída de Figma (`src-interface/App.tsx`).
- * Adaptable a Android (Material 3) e iOS (Safe Area + Cupertino HIG), con selector rápido de plataforma,
- * botón explícito para cerrar sesión / cambiar de rol y barra de búsqueda integrada.
+ * Cabecera superior con buscador integrado, cambio de plataforma y cierre de sesión.
  */
 @Composable
 fun TeqAppHeader(
@@ -142,7 +140,6 @@ fun TeqAppHeader(
             .statusBarsPadding()
             .padding(horizontal = 22.dp, vertical = 20.dp)
     ) {
-        // Órbitas decorativas sutiles (Figma .app-header::before)
         Box(
             modifier = Modifier
                 .size(290.dp)
@@ -331,7 +328,7 @@ fun TeqAppHeader(
 }
 
 /**
- * Botón primario de alto contraste fiel a `.primary-button` de Figma (`src-interface/index.css`).
+ * Botón primario reutilizable de la aplicación.
  */
 @Composable
 fun TeqPrimaryButton(
@@ -397,8 +394,7 @@ fun TeqPrimaryButton(
 }
 
 /**
- * Barra de navegación inferior `BottomNav` de 4 secciones extraída de Figma (`src-interface/App.tsx`),
- * adaptable tanto a Android Material 3 como a iOS Cupertino Tab Bar (con Home Indicator).
+ * Barra de navegación inferior de 4 secciones adaptable a Android e iOS.
  */
 @Composable
 fun TeqBottomNav(

@@ -97,14 +97,7 @@ import cl.duoc.teqgastos.ui.theme.TeqTealMid
 import cl.duoc.teqgastos.ui.theme.TeqTealSoft
 
 /**
- * Pantalla Principal de Técnico en Terreno (Fase 6 - Indicador IE 2.4.1).
- *
- * Incluye:
- * - Lista reactiva de rendiciones con tarjetas animadas (`Modifier.animateContentSize`).
- * - Botón para crear nueva rendición seleccionando Centro de Costo y Medio de Pago.
- * - Botón "Importar Traslado TeqRuta" que inyecta automáticamente 1 gasto de Peaje ($4.800)
- *   y 1 gasto de Combustible ($22.500) pre-calculados.
- * - Navegación directa a `FormularioGastoScreen` para capturar boletas con Cámara y GPS.
+ * Pantalla principal del técnico en terreno para gestionar sus carpetas de rendición.
  */
 @Composable
 fun TecnicoHomeScreen(
@@ -593,7 +586,7 @@ fun TecnicoHomeScreen(
 }
 
 /**
- * Tarjeta de rendición con transición fluida `Modifier.animateContentSize()` exigida en Fase 6.
+ * Tarjeta expandible de rendición con desglose de boletas.
  */
 @Composable
 private fun RendicionAnimatedCard(

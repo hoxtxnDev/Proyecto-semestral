@@ -111,8 +111,7 @@ data class ResumenCategoriaReporte(
 )
 
 /**
- * Sección completa de "Reportes y Seguimiento" para todos los roles (Técnico, Jefatura y Finanzas),
- * manteniendo exactamente la paleta de colores de Figma (`TeqNavy`, `TeqTeal`, `TeqApproveBg`, etc.).
+ * Sección de reportes y seguimiento para Técnico, Jefatura y Finanzas.
  */
 @Composable
 fun TeqReportesSection(

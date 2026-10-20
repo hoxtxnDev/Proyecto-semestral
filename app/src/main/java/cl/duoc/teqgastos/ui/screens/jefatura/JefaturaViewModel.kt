@@ -22,7 +22,7 @@ enum class AccionRevisionJefatura(val etiqueta: String, val estadoDestino: Strin
 }
 
 /**
- * Detalle auditado de un ítem de gasto individual para la vista de inspección de Jefatura (Fase 7).
+ * Detalle auditado de un ítem de gasto individual para revisión de Jefatura.
  */
 data class GastoAuditadoUi(
     val gasto: GastoEntity,
@@ -32,8 +32,7 @@ data class GastoAuditadoUi(
 )
 
 /**
- * Modelo enriquecido para las tarjetas de evaluación de Jefatura (`ManagerScreen` de Figma).
- * Incluye el desglose completo de gastos (`gastosAuditados`), fotos, coordenadas GPS y validación de topes.
+ * Modelo de datos para las tarjetas de evaluación de Jefatura.
  */
 data class ItemEvaluacionJefatura(
     val rendicionId: Int,
@@ -65,9 +64,7 @@ data class JefaturaUiState(
 )
 
 /**
- * ViewModel para el rol JEFATURA (Fase 7).
- * Lista todas las rendiciones enviadas, expone el desglose de gastos con auditoría de topes,
- * foto de boleta y GPS, y exige comentario obligatorio validado antes de Observar o Rechazar en Room.
+ * ViewModel para evaluación y resolución de rendiciones en Jefatura.
  */
 class JefaturaViewModel(
     private val repository: TeqGastosRepository

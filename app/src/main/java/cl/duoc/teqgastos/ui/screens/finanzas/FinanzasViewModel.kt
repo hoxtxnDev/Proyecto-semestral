@@ -49,10 +49,7 @@ data class FinanzasUiState(
 )
 
 /**
- * ViewModel para el rol FINANZAS (Fase 7).
- * Filtra las rendiciones en estado "APROBADA", valida el código de transferencia/reembolso ERP,
- * genera un archivo `.CSV` real en el dispositivo mediante `CsvExporter` y cierra contablemente
- * las rendiciones en Room (`PAGADA_ERP`).
+ * ViewModel para el área de Finanzas y exportación de pagos al ERP.
  */
 class FinanzasViewModel(
     private val repository: TeqGastosRepository

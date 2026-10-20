@@ -13,8 +13,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /**
- * Perfiles preconfigurados para selección rápida durante la defensa del proyecto (Fase 4).
- * Coinciden con los usuarios semilla insertados por `AppDatabase.SeedDatabaseCallback`.
+ * Perfiles de prueba para inicio de sesión rápido por rol.
  */
 enum class PerfilDemo(
     val tituloBoton: String,
@@ -47,7 +46,7 @@ enum class PerfilDemo(
 }
 
 /**
- * Estado inmutable de la pantalla de inicio de sesión expuesto mediante `StateFlow`.
+ * Estado de la pantalla de inicio de sesión.
  */
 data class LoginUiState(
     val email: String = "",
@@ -67,11 +66,7 @@ data class LoginUiState(
 }
 
 /**
- * ViewModel responsable del flujo de autenticación y validación reactiva en tiempo real
- * (Fase 4 - Indicadores IE 2.1.2, IE 2.2.1 e IE 2.2.2).
- *
- * Delega todas las reglas de validación a `GastoValidator` y consulta a `TeqGastosRepository`
- * para autenticar al usuario según su rol corporativo (`TECNICO`, `JEFATURA`, `FINANZAS`).
+ * ViewModel encargado del inicio de sesión y validación de credenciales por rol.
  */
 class AuthViewModel(
     private val repository: TeqGastosRepository

@@ -72,9 +72,7 @@ import cl.duoc.teqgastos.ui.theme.TeqTealDark
 import cl.duoc.teqgastos.ui.theme.TeqTealSoft
 
 /**
- * Pantalla de Login implementada fielmente a partir del diseño de Figma (`src-interface/App.tsx`),
- * manteniendo la validación reactiva en tiempo real desde `AuthViewModel` y `GastoValidator`,
- * el selector rápido de perfiles ("Demo Técnico", "Demo Jefatura", "Demo Finanzas") y la navegación RBAC.
+ * Pantalla de inicio de sesión con validación de credenciales y selector de perfiles de prueba.
  */
 @Composable
 fun LoginScreen(
@@ -85,14 +83,12 @@ fun LoginScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val focusManager = LocalFocusManager.current
 
-    // Selecciona por defecto "Demo Técnico" al abrir la pantalla por primera vez (como en Figma)
     LaunchedEffect(Unit) {
         if (uiState.email.isEmpty() && uiState.perfilDemoActivo == null) {
             viewModel.seleccionarCredencialesDemo(PerfilDemo.TECNICO)
         }
     }
 
-    // Navegación reactiva al autenticar
     LaunchedEffect(uiState.usuarioAutenticado) {
         uiState.usuarioAutenticado?.let { usuario ->
             onLoginSuccess(usuario)
@@ -116,9 +112,7 @@ fun LoginScreen(
                 .padding(innerPadding)
                 .verticalScroll(rememberScrollState())
         ) {
-            // =================================================================
-            // 1. HERO SUPERIOR FIGMA (.login-hero)
-            // =================================================================
+            // Cabecera principal de acceso
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -396,7 +390,6 @@ fun LoginScreen(
 
                 Spacer(modifier = Modifier.height(18.dp))
 
-                // Botón Primario estilo Figma (.primary-button)
                 TeqPrimaryButton(
                     text = "Ingresar como $etiquetaRolBoton",
                     onClick = {

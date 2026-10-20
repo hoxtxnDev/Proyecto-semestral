@@ -1,9 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- =================================================================== -->
-    <!-- FASE 5 (IE 2.4.1): PERMISOS PARA 2 RECURSOS NATIVOS (CÁMARA Y GPS)  -->
-    <!-- =================================================================== -->
+    <!-- Permisos de hardware para cámara y ubicación -->
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />

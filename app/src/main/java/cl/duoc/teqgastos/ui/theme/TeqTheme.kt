@@ -5,9 +5,7 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
-// =========================================================================
-// PALETA DE COLORES OFICIAL EXTRAÍDA DE FIGMA (src-interface/index.css)
-// =========================================================================
+// Paleta de colores corporativa TeqGastos
 val TeqNavy = Color(0xFF1B2A4A)
 val TeqNavyDark = Color(0xFF0F192C)
 val TeqTeal = Color(0xFF00D2C4)

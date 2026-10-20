@@ -21,8 +21,7 @@ data class ResultadoExportacionCsv(
 )
 
 /**
- * Utilidad encargada de generar archivos `.CSV` reales en el almacenamiento del dispositivo
- * y compartirlos de forma segura mediante `FileProvider` e `Intent.ACTION_SEND` (Fase 7).
+ * Generador de archivos CSV para exportación contable al ERP.
  */
 object CsvExporter {
 

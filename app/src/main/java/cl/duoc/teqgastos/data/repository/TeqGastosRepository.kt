@@ -86,8 +86,7 @@ class TeqGastosRepository(private val dao: TeqGastosDao) {
     }
 
     /**
-     * Crea una rendición y su gasto asociado enviándola directamente a PENDIENTE_JEFATURA
-     * tal como opera el flujo directo de la interfaz Figma de Técnico.
+     * Crea una rendición y su gasto asociado dejándola disponible para revisión de Jefatura.
      */
     suspend fun registrarRendicionConGasto(
         tecnicoId: Int,

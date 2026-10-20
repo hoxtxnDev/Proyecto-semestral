@@ -7,12 +7,8 @@ import java.util.Locale
 import kotlin.math.roundToLong
 
 /**
- * Validador de reglas de negocio desacoplado de la UI (Fase 3 - Indicador IE 2.1.2).
- *
- * Ningún @Composable debe ejecutar validaciones directamente; todas las reglas son
- * evaluadas por este componente puro de dominio e invocadas desde los ViewModels.
- * Cada función retorna `null` cuando el valor es válido, o un `String` con el mensaje
- * descriptivo del error para alimentar directamente `ValidatedTextField`.
+ * Validador de reglas de negocio para gastos y rendiciones.
+ * Retorna `null` cuando el dato es válido o el texto de error correspondiente.
  */
 object GastoValidator {
 

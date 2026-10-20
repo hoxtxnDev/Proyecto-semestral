@@ -48,12 +48,7 @@ import cl.duoc.teqgastos.ui.theme.TeqValidBorder
 import cl.duoc.teqgastos.ui.theme.TeqValidIcon
 
 /**
- * Componente visual reutilizable basado en `OutlinedTextField` con estética Figma (`src-interface/App.tsx`)
- * y cumplimiento íntegro de Fase 4 (Indicadores IE 2.1.2, IE 2.2.1):
- * - `isError = errorMessage != null`
- * - `trailingIcon`: `Icons.Default.Error` en rojo si hay error, o `Icons.Default.CheckCircle`
- *   en verde cuando el campo es válido y no está vacío.
- * - `AnimatedVisibility` debajo del campo mostrando el texto del error con transición fluida.
+ * Campo de texto reutilizable con indicador visual de validación y mensaje de error animado.
  */
 @Composable
 fun ValidatedTextField(
@@ -75,14 +70,12 @@ fun ValidatedTextField(
     val isError = errorMessage != null
     val isValidAndNotEmpty = !isError && value.isNotBlank()
 
-    // Conserva el último mensaje de error durante la animación de salida
     var ultimoMensajeError by remember { mutableStateOf(errorMessage.orEmpty()) }
     if (errorMessage != null) {
         ultimoMensajeError = errorMessage
     }
 
     Column(modifier = modifier.fillMaxWidth()) {
-        // Etiqueta superior fiel a `.field-label` de Figma
         Text(
             text = label,
             color = TeqLabelText,

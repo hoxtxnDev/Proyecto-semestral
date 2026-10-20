@@ -19,7 +19,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /**
- * Definición de las 5 categorías del diseño Figma (`src-interface/App.tsx`) vinculadas a `GastoEntity`.
+ * Categorías de gasto disponibles para registro en terreno.
  */
 enum class CategoriaGastoUi(
     val codigo: String,
@@ -34,9 +34,7 @@ enum class CategoriaGastoUi(
 }
 
 /**
- * Estado reactivo del flujo de Técnico (Fase 5 y Fase 6 - Indicador IE 2.4.1).
- * Soporta tanto `TecnicoHomeScreen` (bandeja de rendiciones, creación de rendición e importación TeqRuta)
- * como `FormularioGastoScreen` (validación GastoValidator, cámara FileProvider, GPS FusedLocation y anti-duplicados).
+ * Estado de interfaz para la bandeja de rendiciones y el formulario de gasto del técnico.
  */
 data class TecnicoUiState(
     val rendicionSeleccionadaId: Int? = null,
@@ -194,9 +192,7 @@ class TecnicoViewModel(
     }
 
     /**
-     * FASE 6: Botón "Importar Traslado TeqRuta".
-     * Inyecta automáticamente en Room un gasto de Peaje ($4.800 CLP) y otro de Combustible ($22.500 CLP)
-     * pre-calculados desde la app hermana TeqRuta con `origenTeqRuta = true` y GPS de Concepción.
+     * Importa los gastos de traslado pre-calculados desde TeqRuta (Peaje y Combustible).
      */
     fun importarTrasladoTeqRuta(rendicionIdDestino: Int? = null) {
         viewModelScope.launch {

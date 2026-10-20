@@ -95,14 +95,7 @@ import cl.duoc.teqgastos.ui.theme.TeqTealSoft
 import cl.duoc.teqgastos.utils.NativeResourcesHelper
 
 /**
- * Pantalla de Registro de Gasto en Terreno (Fase 5 y Fase 6 - Indicador IE 2.4.1).
- *
- * Implementa el acceso seguro a los 2 recursos nativos exigidos en la rúbrica:
- * 1. **Cámara Nativa**: `rememberLauncherForActivityResult(ActivityResultContracts.TakePicture())`
- *    alimentado por `NativeResourcesHelper.createImageUri(context)` (`FileProvider`) con miniatura real en pantalla.
- * 2. **GPS Nativo**: `rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions())`
- *    para `ACCESS_FINE_LOCATION` y `ACCESS_COARSE_LOCATION` junto a `FusedLocationProviderClient`
- *    (con fallback a Concepción `-36.8270, -73.0503`).
+ * Formulario de ingreso de boleta en terreno con captura de cámara y coordenadas GPS.
  */
 @Composable
 fun FormularioGastoScreen(
@@ -534,7 +527,7 @@ fun FormularioGastoScreen(
                             }
                         }
 
-                        // Grilla de Categorías Figma (.category-grid)
+                        // Selector de categorías
                         Spacer(modifier = Modifier.height(18.dp))
                         Box(
                             modifier = Modifier

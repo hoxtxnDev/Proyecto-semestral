@@ -96,7 +96,7 @@ abstract class AppDatabase : RoomDatabase() {
             )
             dao.insertarUsuarios(usuariosSemilla)
 
-            // 2. Pre-carga de rendiciones pendientes y aprobadas alineadas con el diseño Figma
+            // 2. Carga inicial de rendiciones de prueba
             val ahora = System.currentTimeMillis()
 
             // Rendición 1 (Pendiente Jefatura - Camila Torres / Carlos Muñoz)

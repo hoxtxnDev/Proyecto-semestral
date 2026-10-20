@@ -17,10 +17,8 @@ import java.io.File
 import kotlinx.coroutines.tasks.await
 
 /**
- * Helper de acceso seguro a los 2 recursos nativos exigidos en Fase 5 (Indicador IE 2.4.1):
- * 1. Cámara Nativa mediante `FileProvider` (`createImageUri`).
- * 2. Geolocalización GPS mediante `FusedLocationProviderClient` (`obtenerUbicacionActual`),
- *    con manejo de `SecurityException` y fallback a Concepción (`-36.8270, -73.0503`).
+ * Utilidades para gestión de archivos temporales de cámara (FileProvider)
+ * y lectura de coordenadas GPS del dispositivo.
  */
 object NativeResourcesHelper {
 
