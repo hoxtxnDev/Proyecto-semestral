@@ -438,6 +438,58 @@ fun FormularioGastoScreen(
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
                         )
 
+                        // Alerta visual de Tope por Categoría (Preventiva >= 80% y Crítica > 100%)
+                        val topeCategoriaActualClp = GastoValidator.obtenerTopeCategoriaClp(
+                            uiState.categoriaSeleccionada.codigo
+                        ) ?: GastoValidator.TOPE_ALIMENTACION_CLP
+                        val porcentajeTope = if (topeCategoriaActualClp > 0) {
+                            (uiState.montoConvertidoClp / topeCategoriaActualClp) * 100.0
+                        } else {
+                            0.0
+                        }
+                        val superaTope = uiState.montoConvertidoClp > topeCategoriaActualClp
+                        val cercaDelTope = !superaTope && porcentajeTope >= 80.0
+
+                        AnimatedVisibility(
+                            visible = superaTope || cercaDelTope,
+                            enter = fadeIn() + expandVertically(),
+                            exit = fadeOut() + shrinkVertically()
+                        ) {
+                            val bgAlerta = if (superaTope) TeqRejectBg else Color(0xFFFFF6E5)
+                            val colorTextoAlerta = if (superaTope) TeqRejectText else Color(0xFFB76E00)
+                            Surface(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 8.dp),
+                                color = bgAlerta,
+                                shape = RoundedCornerShape(11.dp),
+                                border = BorderStroke(1.dp, colorTextoAlerta.copy(alpha = 0.35f))
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 11.dp, vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Error,
+                                        contentDescription = "Alerta de tope",
+                                        tint = colorTextoAlerta,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = if (superaTope) {
+                                            "Alerta de Tope Excedido: ${GastoValidator.formatearClp(uiState.montoConvertidoClp)} CLP supera el máximo permitido (${GastoValidator.formatearClp(topeCategoriaActualClp)} CLP)."
+                                        } else {
+                                            "Alerta preventiva de tope: Has alcanzado el ${porcentajeTope.toInt()}% del límite de ${uiState.categoriaSeleccionada.nombreVisible} (${uiState.categoriaSeleccionada.topeEtiqueta})."
+                                        },
+                                        color = colorTextoAlerta,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        }
+
                         Spacer(modifier = Modifier.height(13.dp))
 
                         // Control de Fecha (máx 5 días de antigüedad respecto a System.currentTimeMillis)
@@ -575,7 +627,7 @@ fun FormularioGastoScreen(
                 Spacer(modifier = Modifier.height(13.dp))
 
                 // =============================================================
-                // 3. TARJETA CONVERSIÓN OFFLINE (.rates-card)
+                // 3. TARJETA CONVERSIÓN OFFLINE CLP / USD / UF (.rates-card)
                 // =============================================================
                 Surface(
                     shape = RoundedCornerShape(17.dp),
@@ -607,16 +659,17 @@ fun FormularioGastoScreen(
                             Spacer(modifier = Modifier.width(9.dp))
                             Column {
                                 Text(
-                                    text = "Conversión offline",
+                                    text = "Conversión CLP / USD / UF",
                                     color = Color.White,
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold
                                 )
+                                val equivalenteUsd = uiState.montoConvertidoClp / GastoValidator.TASA_USD_CLP_DEFAULT
                                 Text(
                                     text = if (uiState.montoConvertidoClp > 0) {
-                                        "Equivalente: ${GastoValidator.formatearClp(uiState.montoConvertidoClp)} CLP"
+                                        "Eq: ${GastoValidator.formatearClp(uiState.montoConvertidoClp)} CLP (≈ USD $${"%.2f".format(java.util.Locale.US, equivalenteUsd)})"
                                     } else {
-                                        "Tasas estáticas disponibles"
+                                        "Tasas offline activas (CLP ↔ USD / UF)"
                                     },
                                     color = if (uiState.montoConvertidoClp > 0) TeqTeal else Color.White.copy(alpha = 0.45f),
                                     fontSize = 9.sp,
