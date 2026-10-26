@@ -5,7 +5,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import cl.duoc.teqgastos.data.local.entities.UsuarioEntity
 import cl.duoc.teqgastos.data.repository.TeqGastosRepository
-import cl.duoc.teqgastos.domain.validators.GastoValidator
+import cl.duoc.teqgastos.domain.validators.AuthValidator
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -79,7 +79,7 @@ class AuthViewModel(
      * Actualiza el correo electrónico y ejecuta validación en tiempo real desde el dominio.
      */
     fun onEmailChange(nuevoEmail: String) {
-        val error = GastoValidator.validarEmail(nuevoEmail)
+        val error = AuthValidator.validarEmail(nuevoEmail)
         _uiState.update { estadoActual ->
             estadoActual.copy(
                 email = nuevoEmail,
@@ -96,7 +96,7 @@ class AuthViewModel(
      * Actualiza la contraseña y ejecuta validación en tiempo real desde el dominio.
      */
     fun onPasswordChange(nuevaPassword: String) {
-        val error = GastoValidator.validarPassword(nuevaPassword)
+        val error = AuthValidator.validarPassword(nuevaPassword)
         _uiState.update { estadoActual ->
             estadoActual.copy(
                 password = nuevaPassword,
@@ -117,8 +117,8 @@ class AuthViewModel(
         perfil: PerfilDemo,
         autoIniciarSesion: Boolean = false
     ) {
-        val emailError = GastoValidator.validarEmail(perfil.email)
-        val passwordError = GastoValidator.validarPassword(perfil.password)
+        val emailError = AuthValidator.validarEmail(perfil.email)
+        val passwordError = AuthValidator.validarPassword(perfil.password)
 
         _uiState.update { estadoActual ->
             estadoActual.copy(
@@ -141,8 +141,8 @@ class AuthViewModel(
      */
     fun iniciarSesion() {
         val estadoActual = _uiState.value
-        val errorEmail = GastoValidator.validarEmail(estadoActual.email)
-        val errorPassword = GastoValidator.validarPassword(estadoActual.password)
+        val errorEmail = AuthValidator.validarEmail(estadoActual.email)
+        val errorPassword = AuthValidator.validarPassword(estadoActual.password)
 
         if (errorEmail != null || errorPassword != null) {
             _uiState.update {

@@ -242,31 +242,14 @@ object GastoValidator {
     // =========================================================================
 
     /**
-     * Valida el correo electrónico en el formulario de autenticación.
+     * Valida el correo electrónico en el formulario de autenticación (delega en `AuthValidator`).
      */
-    fun validarEmail(email: String): String? {
-        val limpio = email.trim()
-        if (limpio.isEmpty()) {
-            return "El correo corporativo es obligatorio"
-        }
-        if (!REGEX_EMAIL.matches(limpio)) {
-            return "Ingrese un correo válido (ej: usuario@teqmed.cl)"
-        }
-        return null
-    }
+    fun validarEmail(email: String): String? = AuthValidator.validarEmail(email)
 
     /**
-     * Valida la contraseña en el formulario de autenticación.
+     * Valida la contraseña en el formulario de autenticación (delega en `AuthValidator`).
      */
-    fun validarPassword(password: String): String? {
-        if (password.isBlank()) {
-            return "La contraseña es obligatoria"
-        }
-        if (password.length < 4) {
-            return "La contraseña debe tener al menos 4 caracteres"
-        }
-        return null
-    }
+    fun validarPassword(password: String): String? = AuthValidator.validarPassword(password)
 
     /**
      * Valida el Centro de Costo al crear una carpeta de rendición.

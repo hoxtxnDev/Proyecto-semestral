@@ -14,7 +14,7 @@ Para garantizar que **TeqGastos** sea escalable, mantenible, fácil de testear e
 | **1** | **MVVM (Model-View-ViewModel)** | Presentación y Estado (`ui/`) | [`AuthViewModel.kt`](../app/src/main/java/cl/duoc/teqgastos/ui/screens/auth/AuthViewModel.kt), [`TecnicoViewModel.kt`](../app/src/main/java/cl/duoc/teqgastos/ui/screens/tecnico/TecnicoViewModel.kt), [`JefaturaViewModel.kt`](../app/src/main/java/cl/duoc/teqgastos/ui/screens/jefatura/JefaturaViewModel.kt), [`FinanzasViewModel.kt`](../app/src/main/java/cl/duoc/teqgastos/ui/screens/finanzas/FinanzasViewModel.kt) | Separa radicalmente la interfaz declarativa (`@Composable`) de la lógica de negocio y del estado de la pantalla, sobreviviendo a rotaciones y cambios de configuración. |
 | **2** | **Unidirectional Data Flow (UDF) + Observer (`StateFlow`)** | Estado Reactivo (`ui/`) | `MutableStateFlow` privado + `StateFlow` público consumido vía `collectAsStateWithLifecycle()` | Los eventos fluyen hacia arriba (`UI → ViewModel`) y el estado inmutable fluye hacia abajo (`ViewModel → UI`). Evita estados inconsistentes y condiciones de carrera. |
 | **3** | **Repository Pattern (Fuente Única de Verdad)** | Datos (`data/repository/`) | [`TeqGastosRepository.kt`](../app/src/main/java/cl/duoc/teqgastos/data/repository/TeqGastosRepository.kt) | Abstrae el origen de los datos (`Room DAO` local y la integración con **TeqRuta**). Los ViewModels nunca acceden directamente a SQLite. |
-| **4** | **Pure Domain Validator (Strategy / Reglas Desacopladas)** | Dominio (`domain/validators/`) | [`GastoValidator.kt`](../app/src/main/java/cl/duoc/teqgastos/domain/validators/GastoValidator.kt) | Encapsula el 100% de las reglas de negocio de TEQMED SPA en funciones puras Kotlin sin dependencias de Android (`Context` ni `Compose`), permitiendo pruebas unitarias instantáneas y reutilización directa en iOS (Kotlin Multiplatform). |
+| **4** | **Pure Domain Validator (Strategy / Reglas Desacopladas)** | Dominio (`domain/validators/`) | [`GastoValidator.kt`](../app/src/main/java/cl/duoc/teqgastos/domain/validators/GastoValidator.kt), [`AuthValidator.kt`](../app/src/main/java/cl/duoc/teqgastos/domain/validators/AuthValidator.kt) | Encapsula el 100% de las reglas de negocio y credenciales de TEQMED SPA en funciones puras Kotlin sin dependencias de Android (`Context` ni `Compose`), permitiendo pruebas unitarias instantáneas y reutilización directa en iOS (Kotlin Multiplatform). |
 | **5** | **Singleton Thread-Safe (`@Volatile` + `synchronized`)** | Persistencia (`data/local/`) | [`AppDatabase.kt`](../app/src/main/java/cl/duoc/teqgastos/data/local/AppDatabase.kt) | Garantiza una única instancia activa del motor SQLite/Room en toda la aplicación e inyecta los datos semilla (`SeedCallback`) en el primer arranque. |
 | **6** | **Factory Pattern (`ViewModelProvider.Factory`)** | Inyección de Dependencias (`ui/`) | `AuthViewModelFactory`, `TecnicoViewModelFactory`, `JefaturaViewModelFactory`, `FinanzasViewModelFactory` | Permite inyectar limpiamente `TeqGastosRepository` en cada `ViewModel` respetando el ciclo de vida de Jetpack Navigation. |
 
@@ -40,6 +40,7 @@ flowchart TD
     end
 
     subgraph DOMAIN["Capa de Dominio Puro (100% Kotlin Multiplatform Ready)"]
+        AuthVal["AuthValidator.kt\n(Correo Corporativo y Contraseña)"]
         Validator["GastoValidator.kt\n(RUT, Folio, Plazo 5 días, Topes CLP, Conversor UF/USD, Motivo)"]
     end
 
@@ -55,7 +56,7 @@ flowchart TD
     Jefatura <-->|"Eventos / StateFlow"| JefVM
     Finanzas <-->|"Eventos / StateFlow"| FinVM
 
-    AuthVM --> Validator
+    AuthVM --> AuthVal
     TecVM --> Validator
     JefVM --> Validator
     FinVM --> Validator
