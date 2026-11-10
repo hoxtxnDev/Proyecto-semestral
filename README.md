@@ -106,6 +106,52 @@ app/src/main/java/cl/duoc/teqgastos/
 └── utils/
     ├── NativeResourcesHelper.kt           # FileProvider URI para Cámara + FusedLocationProviderClient GPS
     └── CsvExporter.kt                     # Generador de archivo físico .CSV en dispositivo + Intent.ACTION_SEND
+
+app/src/test/java/cl/duoc/teqgastos/             # Suite de Pruebas Unitarias (100% Kotlin + JUnit 4 + Coroutines Test)
+├── data/repository/
+│   ├── FakeTeqGastosDao.kt                # Double de pruebas en memoria para Room DAO
+│   └── TeqGastosRepositoryTest.kt         # Pruebas de consultas por rol, transacciones y control anti-duplicidad
+├── domain/validators/
+│   ├── AuthValidatorTest.kt               # Pruebas de dominio para emails corporativos y contraseñas
+│   └── GastoValidatorTest.kt              # Pruebas de RUT, folios, plazo 5 días, topes CLP, conversor multimoneda
+├── ui/screens/
+│   ├── auth/AuthViewModelTest.kt          # Pruebas de estado UI de Login y credenciales Demo
+│   ├── tecnico/TecnicoViewModelTest.kt    # Pruebas de formulario, traslados TeqRuta y prevención de duplicados
+│   ├── jefatura/JefaturaViewModelTest.kt  # Pruebas de auditoría de topes y resoluciones de aprobación/rechazo
+│   └── finanzas/FinanzasViewModelTest.kt  # Pruebas de consolidado de pagos y códigos de transferencia ERP
+└── utils/MainDispatcherRule.kt            # Regla JUnit 4 para sustituir Dispatchers.Main en corrutinas
+```
+
+---
+
+## 🧪 Suite de Pruebas Unitarias (Unit Testing en Kotlin)
+
+El proyecto cuenta con una cobertura integral de **Pruebas Unitarias (Unit Tests)** desarrollada en **Kotlin puro**, utilizando **JUnit 4**, **`kotlinx-coroutines-test`** y un **Fake DAO en memoria** (`FakeTeqGastosDao`) para probar de forma desacoplada y determinista la capa de dominio, el repositorio y los ViewModels:
+
+| Componente Evaluado | Archivo de Prueba | Cobertura de Pruebas y Casos Verificados |
+| :--- | :--- | :--- |
+| **Validaciones de Autenticación** | [`AuthValidatorTest.kt`](app/src/test/java/cl/duoc/teqgastos/domain/validators/AuthValidatorTest.kt) | Formato de correos `@teqmed.cl`, limpieza con `trim()`, rechazo de correos vacíos/inválidos y contraseña de 4+ caracteres. |
+| **Validaciones de Gastos** | [`GastoValidatorTest.kt`](app/src/test/java/cl/duoc/teqgastos/domain/validators/GastoValidatorTest.kt) | RUTs chilenos con/sin puntos, folios numéricos, **regla de antigüedad máxima (5 días)**, conversor multimoneda (`CLP`, `UF`, `USD`), topes por categoría, URIs de fotos, centro de costos y motivos de revisión. |
+| **Repositorio y Persistencia** | [`TeqGastosRepositoryTest.kt`](app/src/test/java/cl/duoc/teqgastos/data/repository/TeqGastosRepositoryTest.kt) | Autenticación, filtrado de rendiciones según rol (**TECNICO**, **JEFATURA**, **FINANZAS**), cálculo atómico de montos totales, **detección de boletas duplicadas (`RUT + Folio + Monto`)** y procesamiento de pagos en lote ERP. |
+| **ViewModel de Autenticación** | [`AuthViewModelTest.kt`](app/src/test/java/cl/duoc/teqgastos/ui/screens/auth/AuthViewModelTest.kt) | Flujo del estado UI (`LoginUiState`), selección de perfiles Demo, manejo de errores y cierre de sesión. |
+| **ViewModel de Técnico** | [`TecnicoViewModelTest.kt`](app/src/test/java/cl/duoc/teqgastos/ui/screens/tecnico/TecnicoViewModelTest.kt) | Formulario reactivo, importación de traslados **TeqRuta** (Peaje `$4.800` + Combustible `$22.500`), alertas anti-fraude por duplicados y envío a Jefatura. |
+| **ViewModel de Jefatura** | [`JefaturaViewModelTest.kt`](app/src/test/java/cl/duoc/teqgastos/ui/screens/jefatura/JefaturaViewModelTest.kt) | Desglose auditado de gastos con cálculo de `cumpleTope`, aprobación directa y modales de observación/rechazo con comentario obligatorio. |
+| **ViewModel de Finanzas** | [`FinanzasViewModelTest.kt`](app/src/test/java/cl/duoc/teqgastos/ui/screens/finanzas/FinanzasViewModelTest.kt) | Consolidación de ítems aprobados y pagados, validación del código ERP y cambio de filtros. |
+| **Infraestructura de Tests** | [`FakeTeqGastosDao.kt`](app/src/test/java/cl/duoc/teqgastos/data/repository/FakeTeqGastosDao.kt)<br>[`MainDispatcherRule.kt`](app/src/test/java/cl/duoc/teqgastos/utils/MainDispatcherRule.kt) | Reemplazo desatendido de `Dispatchers.Main` y simulador de Room en memoria con emisiones reactivas vía `StateFlow`. |
+
+### 🏃‍♂️ Ejecución de las Pruebas Unitarias desde Terminal
+
+Para ejecutar la suite completa de unit tests desde la terminal de Android Studio:
+
+```bash
+# Ejecutar todas las pruebas unitarias en Android (Debug y Release)
+./gradlew test
+```
+
+Para ejecutar una clase específica de prueba:
+
+```bash
+./gradlew test --tests "cl.duoc.teqgastos.domain.validators.GastoValidatorTest"
 ```
 
 ---
@@ -122,9 +168,9 @@ app/src/main/java/cl/duoc/teqgastos/
    - Esperar a que finalice la sincronización de **Gradle (AGP 8.7.3 / Kotlin 2.0.21 / KSP)**.
 3. **Configurar Dispositivo o Emulador:**
    - Usar un dispositivo físico o un emulador con **API 26 (Android 8.0)** o superior (recomendado API 34/35 con cámara emulada configurada en *Virtual Scene* o *Webcam0*).
-4. **Compilar desde Terminal (opcional):**
+4. **Ejecutar Pruebas Unitarias (opcional):**
    ```bash
-   ./gradlew assembleDebug
+   ./gradlew test
    ```
-5. **Ejecutar la aplicación:**
+5. **Compilar y Ejecutar la Aplicación:**
    - Presionar **Run (`Shift + F10` / `Ctrl + R`)** en Android Studio.
