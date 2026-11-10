@@ -441,7 +441,7 @@ fun TeqBottomNav(
                             .background(if (isSelected) TeqTealSoft else Color.Transparent)
                             .clickable { onTabSelected(label) },
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Alignment.Center
+                        verticalArrangement = Arrangement.Center
                     ) {
                         Icon(
                             imageVector = icon,
